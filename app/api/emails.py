@@ -30,7 +30,8 @@ async def send_email(
     - **subject**: Email subject
     - **body**: Email body content
     - **html**: Whether body is HTML (default: false)
-    - **idempotency_key**: Optional key to prevent duplicate submissions
+    - **caller_id**: Optional caller identifier for multi-tenant isolation
+    - **idempotency_key**: Optional key to prevent duplicate submissions (requires caller_id for enforcement)
     """
     try:
         # Create and validate email record

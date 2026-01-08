@@ -136,6 +136,7 @@ Configuration is done via environment variables (`.env` file):
   "subject": "Test Email",
   "body": "Email body content",
   "html": false,
+  "caller_id": "service-a",
   "idempotency_key": "unique-key-123"
 }
 ```
@@ -149,7 +150,8 @@ Configuration is done via environment variables (`.env` file):
 - `subject` (required): Email subject
 - `body` (required): Email body content
 - `html` (optional): Whether body is HTML (default: false)
-- `idempotency_key` (optional): Unique key to prevent duplicate submissions
+- `caller_id` (optional): Caller identifier for multi-tenant isolation
+- `idempotency_key` (optional): Unique key to prevent duplicate submissions (enforced per caller_id when provided)
 
 **Response** (201 Created):
 ```json

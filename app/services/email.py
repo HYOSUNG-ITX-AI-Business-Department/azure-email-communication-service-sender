@@ -47,7 +47,8 @@ class EmailService:
             )
         
         # Check idempotency per caller
-        if email_request.idempotency_key:
+        # Note: idempotency is only enforced when both caller_id and idempotency_key are provided
+        if email_request.idempotency_key and email_request.caller_id:
             existing = await self.get_by_idempotency_key(
                 db, email_request.caller_id, email_request.idempotency_key
             )
