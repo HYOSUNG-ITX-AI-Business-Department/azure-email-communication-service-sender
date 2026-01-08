@@ -57,7 +57,17 @@ class SMTPService:
         if bcc_addresses:
             all_recipients.extend(bcc_addresses)
         
-        logger.info(f"Sending email from {from_address} (envelope: {envelope_from}) to {all_recipients}")
+        recipient_count = len(all_recipients)
+        recipient_domains = sorted(
+            {addr.split("@", 1)[1] for addr in all_recipients if "@" in addr}
+        )
+        logger.info(
+            "Sending email from %s (envelope: %s), recipients: %d, domains: %s",
+            from_address,
+            envelope_from,
+            recipient_count,
+            recipient_domains,
+        )
         
         # Connect to SMTP server with STARTTLS
         try:
@@ -75,7 +85,7 @@ class SMTPService:
                 timeout=30
             )
             
-            logger.info(f"Email sent successfully to {all_recipients}")
+            logger.info("Email sent successfully to %d recipients", recipient_count)
             
         except aiosmtplib.SMTPException:
             logger.exception("SMTP error sending email")
