@@ -49,7 +49,7 @@ Successfully implemented a complete Azure Email Communication Service Sender wit
 
 ## Architecture
 
-```
+```text
 Client → REST API (FastAPI) → PostgreSQL Database
               ↓
          Valkey Queue
