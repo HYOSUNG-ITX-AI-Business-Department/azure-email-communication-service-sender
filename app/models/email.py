@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, UniqueConstraint, Index
+from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, Index, text
 from sqlalchemy.sql import func
 import uuid
 
@@ -57,10 +57,15 @@ class EmailRecord(Base):
     # Audit trail
     audit_log = Column(JSON, nullable=True)  # List of status changes with timestamps
     
-    # Composite unique constraint for multi-tenant idempotency
-    # Note: This constraint only applies when both values are NOT NULL
-    # PostgreSQL treats NULL values as distinct, so multiple NULLs won't violate the constraint
+    # Composite unique index for multi-tenant idempotency
+    # Enforced only when idempotency_key is set to avoid NULL collisions across databases.
     __table_args__ = (
-        UniqueConstraint('caller_id', 'idempotency_key', name='uix_caller_idempotency'),
-        Index('ix_caller_idempotency', 'caller_id', 'idempotency_key'),
+        Index(
+            "uix_caller_idempotency",
+            "caller_id",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+            sqlite_where=text("idempotency_key IS NOT NULL"),
+        ),
     )
