@@ -6,7 +6,6 @@ import uuid
 
 class Base(DeclarativeBase):
     """Base class for declarative models"""
-    pass
 
 
 class EmailRecord(Base):
