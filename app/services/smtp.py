@@ -77,11 +77,11 @@ class SMTPService:
             
             logger.info(f"Email sent successfully to {all_recipients}")
             
-        except aiosmtplib.SMTPException as e:
-            logger.error(f"SMTP error sending email: {str(e)}")
+        except aiosmtplib.SMTPException:
+            logger.exception("SMTP error sending email")
             raise
-        except Exception as e:
-            logger.error(f"Unexpected error sending email: {str(e)}")
+        except Exception:
+            logger.exception("Unexpected error sending email")
             raise
 
 
