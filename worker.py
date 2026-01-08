@@ -3,6 +3,7 @@ import contextlib
 import logging
 import json
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from aiosmtplib import SMTPException, SMTPResponseException
 from app.config import settings
 from app.services.queue import queue_service
 from app.services.smtp import smtp_service
@@ -89,23 +90,55 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             return False
         
         # Send email via SMTP
-        logger.info(f"Sending email {email_id} (retry: {email.retry_count})")
-        await smtp_service.send_email(
-            from_address=email.from_address,
-            envelope_from=email.envelope_from,
-            to_addresses=to_addresses,
-            cc_addresses=cc_addresses,
-            bcc_addresses=bcc_addresses,
-            subject=email.subject,
-            body=email.body,
-            is_html=bool(email.is_html)
-        )
-        
+        logger.info("Sending email %s (retry: %s)", email_id, email.retry_count)
+        try:
+            await smtp_service.send_email(
+                from_address=email.from_address,
+                envelope_from=email.envelope_from,
+                to_addresses=to_addresses,
+                cc_addresses=cc_addresses,
+                bcc_addresses=bcc_addresses,
+                subject=email.subject,
+                body=email.body,
+                is_html=bool(email.is_html)
+            )
+        except SMTPResponseException as exc:
+            error_msg = str(exc)
+            logger.exception("SMTP response error for email %s", email_id)
+
+            if exc.code and exc.code >= 500:
+                await email_service.update_status(
+                    db, email_id, EmailStatus.DLQ,
+                    error_message=f"Permanent SMTP error: {error_msg}",
+                )
+                await queue_service.move_to_dlq(email_id, error_msg)
+                return False
+
+            updated = await email_service.update_status(
+                db, email_id, EmailStatus.FAILED,
+                error_message=error_msg,
+                increment_retry=True
+            )
+            delay_seconds = settings.retry_delay_seconds * (2 ** max(updated.retry_count - 1, 0))
+            await queue_service.requeue_delayed(email_id, delay_seconds)
+            return False
+        except SMTPException as exc:
+            error_msg = str(exc)
+            logger.exception("SMTP error for email %s", email_id)
+            updated = await email_service.update_status(
+                db, email_id, EmailStatus.FAILED,
+                error_message=error_msg,
+                increment_retry=True
+            )
+            delay_seconds = settings.retry_delay_seconds * (2 ** max(updated.retry_count - 1, 0))
+            await queue_service.requeue_delayed(email_id, delay_seconds)
+            return False
+
         # Update status to sent
         await email_service.update_status(db, email_id, EmailStatus.SENT)
         await queue_service.complete(email_id)
-        
-        logger.info(f"Successfully sent email {email_id}")
+
+        logger.info("Successfully sent email %s", email_id)
         return True
         
     except Exception as e:
