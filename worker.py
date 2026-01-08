@@ -23,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Common permanent SMTP response codes; treat others as retryable.
-PERMANENT_SMTP_CODES = {500, 501, 502, 503, 504, 550, 551, 552, 553, 554}
+PERMANENT_SMTP_CODES = {500, 501, 502, 503, 504, 521, 550, 551, 552, 553, 554}
 
 # Graceful shutdown flag
 shutdown_flag = False
