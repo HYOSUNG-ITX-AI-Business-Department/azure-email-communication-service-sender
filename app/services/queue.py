@@ -148,17 +148,33 @@ class QueueService:
         return result
     
     async def complete(self, email_id: str):
-        """Remove email from processing set after successful send"""
-        await self.redis_client.lrem(self.processing_key, 1, email_id)
-        logger.info(f"Completed email {email_id}")
+        """Remove email from processing set after successful send.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            await self.redis_client.lrem(self.processing_key, 1, email_id)
+        except redis.RedisError:
+            logger.exception("Failed to complete email %s", email_id)
+            raise
+        logger.info("Completed email %s", email_id)
     
     async def move_to_dlq(self, email_id: str, error: str):
-        """Move failed email to Dead Letter Queue"""
+        """Move failed email to Dead Letter Queue.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
         dlq_item = json.dumps({"email_id": email_id, "error": error})
-        moved = await self._move_to_dlq_script(
-            keys=[self.processing_key, self.dlq_key],
-            args=[email_id, dlq_item],
-        )
+        try:
+            moved = await self._move_to_dlq_script(
+                keys=[self.processing_key, self.dlq_key],
+                args=[email_id, dlq_item],
+            )
+        except redis.RedisError:
+            logger.exception("Failed to move email %s to DLQ", email_id)
+            raise
         moved = int(moved or 0)
         if moved == 0:
             logger.warning(
@@ -169,11 +185,19 @@ class QueueService:
         logger.error("Moved email %s to DLQ: %s", email_id, error)
     
     async def requeue(self, email_id: str):
-        """Move email back to queue for retry"""
-        moved = await self._requeue_script(
-            keys=[self.processing_key, self.queue_key],
-            args=[email_id],
-        )
+        """Move email back to queue for retry.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            moved = await self._requeue_script(
+                keys=[self.processing_key, self.queue_key],
+                args=[email_id],
+            )
+        except redis.RedisError:
+            logger.exception("Failed to requeue email %s", email_id)
+            raise
         moved = int(moved or 0)
         if moved == 0:
             logger.warning(
@@ -184,12 +208,24 @@ class QueueService:
         logger.info("Requeued email %s for retry", email_id)
 
     async def requeue_delayed(self, email_id: str, delay_seconds: int):
-        """Move email to delayed retry queue"""
+        """Move email to delayed retry queue.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
         score = time.time() + delay_seconds
-        moved = await self._requeue_delayed_script(
-            keys=[self.processing_key, self.delayed_queue_key],
-            args=[email_id, score],
-        )
+        try:
+            moved = await self._requeue_delayed_script(
+                keys=[self.processing_key, self.delayed_queue_key],
+                args=[email_id, score],
+            )
+        except redis.RedisError:
+            logger.exception(
+                "Failed to requeue email %s with delay %s",
+                email_id,
+                delay_seconds,
+            )
+            raise
         moved = int(moved or 0)
         if moved == 0:
             logger.warning(
@@ -204,12 +240,20 @@ class QueueService:
         )
 
     async def move_ready_delayed(self, max_batch: int = 100) -> int:
-        """Move ready delayed emails back to main queue"""
+        """Move ready delayed emails back to main queue.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
         now = time.time()
-        moved = await self._move_ready_delayed_script(
-            keys=[self.delayed_queue_key, self.queue_key],
-            args=[now, max_batch],
-        )
+        try:
+            moved = await self._move_ready_delayed_script(
+                keys=[self.delayed_queue_key, self.queue_key],
+                args=[now, max_batch],
+            )
+        except redis.RedisError:
+            logger.exception("Failed to move delayed emails back to queue")
+            raise
         moved = int(moved or 0)
 
         if moved > 0:
@@ -217,16 +261,40 @@ class QueueService:
         return moved
     
     async def get_queue_size(self) -> int:
-        """Get current queue size"""
-        return await self.redis_client.llen(self.queue_key)
+        """Get current queue size.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            return await self.redis_client.llen(self.queue_key)
+        except redis.RedisError:
+            logger.exception("Failed to get queue size")
+            raise
     
     async def get_processing_size(self) -> int:
-        """Get number of emails being processed"""
-        return await self.redis_client.llen(self.processing_key)
+        """Get number of emails being processed.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            return await self.redis_client.llen(self.processing_key)
+        except redis.RedisError:
+            logger.exception("Failed to get processing queue size")
+            raise
     
     async def get_dlq_size(self) -> int:
-        """Get Dead Letter Queue size"""
-        return await self.redis_client.llen(self.dlq_key)
+        """Get Dead Letter Queue size.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            return await self.redis_client.llen(self.dlq_key)
+        except redis.RedisError:
+            logger.exception("Failed to get DLQ size")
+            raise
 
 
 # Global queue service instance
