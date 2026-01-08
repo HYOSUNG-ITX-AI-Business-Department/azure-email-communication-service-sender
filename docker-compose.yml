@@ -46,6 +46,7 @@ services:
       - SMTP_USERNAME=${SMTP_USERNAME}
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - ALLOWED_MAILFROM=${ALLOWED_MAILFROM}
+      - ALLOWED_HEADERS=${ALLOWED_HEADERS:-}
       - REDIS_URL=redis://valkey:6379/0
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-emailuser}:${POSTGRES_PASSWORD:-emailpass}@postgres:5432/${POSTGRES_DB:-emails}
       - MAX_RETRIES=${MAX_RETRIES:-3}
