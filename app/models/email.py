@@ -39,9 +39,20 @@ class EmailRecord(Base):
     error_message = Column(Text, nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, default=func.now(), nullable=False)
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    sent_at = Column(DateTime, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=func.now(),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=func.now(),
+        onupdate=func.now(),
+        server_default=func.now(),
+        nullable=False,
+    )
+    sent_at = Column(DateTime(timezone=True), nullable=True)
     
     # Audit trail
     audit_log = Column(JSON, nullable=True)  # List of status changes with timestamps
