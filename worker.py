@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import json
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -112,17 +113,31 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         logger.exception(f"Error processing email {email_id}")
         
         # Update status to failed and increment retry count
-        await email_service.update_status(
+        updated = await email_service.update_status(
             db, email_id, EmailStatus.FAILED,
             error_message=error_msg,
             increment_retry=True
         )
         
-        # Requeue for retry (next attempt will check retry limit at the start)
-        # Note: In production, use Valkey ZADD with timestamp for delayed retry
-        await queue_service.requeue(email_id)
+        # Requeue for retry with exponential backoff
+        delay_seconds = settings.retry_delay_seconds * (2 ** max(updated.retry_count - 1, 0))
+        await queue_service.requeue_delayed(email_id, delay_seconds)
         
         return False
+
+
+async def poll_delayed_queue(poll_interval: float = 1.0, batch_size: int = 100) -> None:
+    """Move ready delayed emails back to the main queue."""
+    while not shutdown_flag:
+        try:
+            moved = await queue_service.move_ready_delayed(max_batch=batch_size)
+            if moved == 0:
+                await asyncio.sleep(poll_interval)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.exception("Error processing delayed queue")
+            await asyncio.sleep(poll_interval)
 
 
 async def worker():
@@ -145,6 +160,8 @@ async def worker():
     # Connect to queue
     await queue_service.connect()
     
+    delayed_task = asyncio.create_task(poll_delayed_queue())
+
     try:
         while not shutdown_flag:
             try:
@@ -165,6 +182,9 @@ async def worker():
                 
     finally:
         # Cleanup
+        delayed_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await delayed_task
         await queue_service.disconnect()
         await engine.dispose()
         logger.info("Worker stopped")

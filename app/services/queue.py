@@ -2,6 +2,7 @@ import redis.asyncio as redis
 from app.config import settings
 import json
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ class QueueService:
         self.queue_key = "email:queue"
         self.processing_key = "email:processing"
         self.dlq_key = "email:dlq"
+        self.delayed_queue_key = "email:delayed"
     
     async def connect(self):
         """Connect to Redis"""
@@ -64,6 +66,38 @@ class QueueService:
         await self.redis_client.lrem(self.processing_key, 1, email_id)
         await self.redis_client.lpush(self.queue_key, email_id)
         logger.info(f"Requeued email {email_id} for retry")
+
+    async def requeue_delayed(self, email_id: str, delay_seconds: int):
+        """Move email to delayed retry queue"""
+        await self.redis_client.lrem(self.processing_key, 1, email_id)
+        score = time.time() + delay_seconds
+        await self.redis_client.zadd(self.delayed_queue_key, {email_id: score})
+        logger.info(
+            "Requeued email %s for retry in %s seconds",
+            email_id,
+            delay_seconds,
+        )
+
+    async def move_ready_delayed(self, max_batch: int = 100) -> int:
+        """Move ready delayed emails back to main queue"""
+        now = time.time()
+        email_ids = await self.redis_client.zrangebyscore(
+            self.delayed_queue_key,
+            min=0,
+            max=now,
+            start=0,
+            num=max_batch,
+        )
+        if not email_ids:
+            return 0
+
+        pipeline = self.redis_client.pipeline()
+        pipeline.zrem(self.delayed_queue_key, *email_ids)
+        pipeline.lpush(self.queue_key, *email_ids)
+        await pipeline.execute()
+
+        logger.info("Moved %d delayed emails back to queue", len(email_ids))
+        return len(email_ids)
     
     async def get_queue_size(self) -> int:
         """Get current queue size"""
