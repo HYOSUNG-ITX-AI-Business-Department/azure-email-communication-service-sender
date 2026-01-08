@@ -36,6 +36,11 @@ def signal_handler(signum, frame):
     shutdown_flag = True
 
 
+def calculate_backoff_delay(retry_count: int, base_delay: int) -> int:
+    """Calculate exponential backoff delay in seconds."""
+    return base_delay * (2 ** max(retry_count - 1, 0))
+
+
 async def process_email(db: AsyncSession, email_id: str) -> bool:
     """
     Process a single email from the queue
@@ -144,7 +149,10 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                 error_message=error_msg,
                 increment_retry=True
             )
-            delay_seconds = settings.retry_delay_seconds * (2 ** max(updated.retry_count - 1, 0))
+            delay_seconds = calculate_backoff_delay(
+                updated.retry_count,
+                settings.retry_delay_seconds,
+            )
             await queue_service.requeue_delayed(email_id, delay_seconds)
             return False
         except SMTPException as exc:
@@ -155,7 +163,10 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                 error_message=error_msg,
                 increment_retry=True
             )
-            delay_seconds = settings.retry_delay_seconds * (2 ** max(updated.retry_count - 1, 0))
+            delay_seconds = calculate_backoff_delay(
+                updated.retry_count,
+                settings.retry_delay_seconds,
+            )
             await queue_service.requeue_delayed(email_id, delay_seconds)
             return False
 
@@ -173,7 +184,10 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         # DB session may be in a bad state; requeue for retry with backoff
         db_error_count = await queue_service.increment_db_error_count(email_id)
         retry_step = min(db_error_count, settings.max_retries)
-        delay_seconds = settings.retry_delay_seconds * (2 ** max(retry_step - 1, 0))
+        delay_seconds = calculate_backoff_delay(
+            retry_step,
+            settings.retry_delay_seconds,
+        )
         logger.warning(
             "Requeuing email %s after DB error (attempt %s) in %s seconds",
             email_id,
@@ -194,7 +208,10 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         )
         
         # Requeue for retry with exponential backoff
-        delay_seconds = settings.retry_delay_seconds * (2 ** max(updated.retry_count - 1, 0))
+        delay_seconds = calculate_backoff_delay(
+            updated.retry_count,
+            settings.retry_delay_seconds,
+        )
         await queue_service.requeue_delayed(email_id, delay_seconds)
         
         return False
