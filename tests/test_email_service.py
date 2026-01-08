@@ -230,7 +230,7 @@ async def test_update_status_with_audit_trail(db_session):
         audit_entries = updated.audit_log
         if isinstance(audit_entries, str):
             audit_entries = json.loads(audit_entries)
-        assert len(audit_entries) >= 1
+        assert len(audit_entries) == 2
         latest_entry = audit_entries[-1]
         assert latest_entry["status"] == EmailStatus.QUEUED.value
         assert "timestamp" in latest_entry
