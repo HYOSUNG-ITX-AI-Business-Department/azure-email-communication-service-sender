@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    command: python -m app.main
+    ports:
+      - "8000:8000"
+    environment:
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - ALLOWED_MAILFROM=${ALLOWED_MAILFROM}
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:///./emails.db
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+      - RETRY_DELAY_SECONDS=${RETRY_DELAY_SECONDS:-60}
+    volumes:
+      - ./emails.db:/app/emails.db
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: python worker.py
+    environment:
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - ALLOWED_MAILFROM=${ALLOWED_MAILFROM}
+      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=sqlite+aiosqlite:///./emails.db
+      - MAX_RETRIES=${MAX_RETRIES:-3}
+      - RETRY_DELAY_SECONDS=${RETRY_DELAY_SECONDS:-60}
+    volumes:
+      - ./emails.db:/app/emails.db
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+
+volumes:
+  redis_data:

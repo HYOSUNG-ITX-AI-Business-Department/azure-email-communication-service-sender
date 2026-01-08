@@ -1,0 +1,155 @@
+import pytest
+from unittest.mock import patch
+from app.services.email import EmailService
+from app.schemas.email import EmailRequest, EmailStatus
+from app.config import Settings
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_default_envelope_from(db_session):
+    """Test email creation with default envelope_from (aligned)"""
+    email_service = EmailService()
+    
+    with patch('app.config.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com",
+            "noreply@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        
+        assert email.from_address == "sender@yourdomain.com"
+        assert email.envelope_from == "sender@yourdomain.com"  # Default alignment
+        assert email.status == EmailStatus.PENDING
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_explicit_envelope_from(db_session):
+    """Test email creation with explicit envelope_from"""
+    email_service = EmailService()
+    
+    with patch('app.config.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com",
+            "noreply@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "envelope_from": "noreply@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        
+        assert email.from_address == "sender@yourdomain.com"
+        assert email.envelope_from == "noreply@yourdomain.com"
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_invalid_envelope_from(db_session):
+    """Test email creation fails with invalid envelope_from"""
+    email_service = EmailService()
+    
+    with patch('app.config.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "envelope_from": "notallowed@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body"
+            }
+        )
+        
+        with pytest.raises(ValueError, match="not in allowed MailFrom list"):
+            await email_service.create_email(db_session, request)
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key(db_session):
+    """Test idempotency prevents duplicate submissions"""
+    email_service = EmailService()
+    
+    with patch('app.config.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "idempotency_key": "unique-key-123"
+            }
+        )
+        
+        # First submission
+        email1 = await email_service.create_email(db_session, request)
+        
+        # Second submission with same key
+        email2 = await email_service.create_email(db_session, request)
+        
+        # Should return the same email
+        assert email1.id == email2.id
+
+
+@pytest.mark.asyncio
+async def test_update_status_with_audit_trail(db_session):
+    """Test status update creates audit trail"""
+    email_service = EmailService()
+    
+    with patch('app.config.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        
+        # Update status
+        updated = await email_service.update_status(
+            db_session,
+            email.id,
+            EmailStatus.QUEUED
+        )
+        
+        assert updated.status == EmailStatus.QUEUED
+        assert updated.audit_log is not None
+        
+        # Update again
+        updated = await email_service.update_status(
+            db_session,
+            email.id,
+            EmailStatus.SENT
+        )
+        
+        assert updated.status == EmailStatus.SENT
+        assert updated.sent_at is not None
