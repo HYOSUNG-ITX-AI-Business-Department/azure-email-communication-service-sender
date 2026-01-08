@@ -242,8 +242,7 @@ async def worker():
     # Create database engine and session factory
     engine = create_async_engine(
         settings.database_url,
-        echo=False,
-        future=True
+        echo=False
     )
     AsyncSessionLocal = async_sessionmaker(
         engine,
