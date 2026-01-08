@@ -43,6 +43,8 @@ class EmailRecord(Base):
     audit_log = Column(JSON, nullable=True)  # List of status changes with timestamps
     
     # Composite unique constraint for multi-tenant idempotency
+    # Note: This constraint only applies when both values are NOT NULL
+    # PostgreSQL treats NULL values as distinct, so multiple NULLs won't violate the constraint
     __table_args__ = (
         UniqueConstraint('caller_id', 'idempotency_key', name='uix_caller_idempotency'),
         Index('ix_caller_idempotency', 'caller_id', 'idempotency_key'),

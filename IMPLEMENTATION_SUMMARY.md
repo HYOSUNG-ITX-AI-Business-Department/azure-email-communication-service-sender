@@ -105,7 +105,7 @@ Client → REST API (FastAPI) → PostgreSQL Database
 - Implement rate limiting
 - Add email templating system
 - Support for attachments
-- PostgreSQL for production database
+- Enhance PostgreSQL production operations (automated migrations, backups, failover)
 - Multiple worker instances with distributed locking
 
 ## Configuration Required for Deployment

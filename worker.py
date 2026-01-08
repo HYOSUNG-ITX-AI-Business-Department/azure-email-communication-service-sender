@@ -71,10 +71,22 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         # Update status to sending
         await email_service.update_status(db, email_id, EmailStatus.SENDING)
         
-        # Parse addresses from JSON
-        to_addresses = json.loads(email.to_addresses)
-        cc_addresses = json.loads(email.cc_addresses) if email.cc_addresses else None
-        bcc_addresses = json.loads(email.bcc_addresses) if email.bcc_addresses else None
+        # Parse addresses from JSON with error handling
+        try:
+            to_addresses = json.loads(email.to_addresses)
+            cc_addresses = json.loads(email.cc_addresses) if email.cc_addresses else None
+            bcc_addresses = json.loads(email.bcc_addresses) if email.bcc_addresses else None
+        except json.JSONDecodeError as e:
+            error_message = f"Invalid JSON in email address fields for email {email_id}: {e}"
+            logger.exception(error_message)
+            await email_service.update_status(
+                db,
+                email_id,
+                EmailStatus.DLQ,
+                error_message=error_message,
+            )
+            await queue_service.move_to_dlq(email_id, error_message)
+            return False
         
         # Send email via SMTP
         logger.info(f"Sending email {email_id} (retry: {email.retry_count})")
@@ -98,7 +110,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
     except Exception as e:
         error_msg = str(e)
-        logger.error(f"Error processing email {email_id}: {error_msg}")
+        logger.exception(f"Error processing email {email_id}: {error_msg}")
         
         # Update status to failed and increment retry count
         await email_service.update_status(
@@ -107,24 +119,9 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             increment_retry=True
         )
         
-        # Get updated email to check retry count
-        email = await email_service.get_by_id(db, email_id)
-        
-        if email.retry_count < settings.max_retries:
-            # Requeue for retry - note: in production, use Redis ZADD with timestamp 
-            # for delayed retry instead of blocking with asyncio.sleep
-            retry_delay = settings.retry_delay_seconds * (2 ** (email.retry_count - 1))
-            logger.info(f"Will retry email {email_id} (delay: {retry_delay}s)")
-            # For now, we still requeue immediately. In production, implement
-            # a delayed queue using Redis sorted sets (ZADD) with score as retry timestamp
-            await queue_service.requeue(email_id)
-        else:
-            # Move to DLQ
-            await email_service.update_status(
-                db, email_id, EmailStatus.DLQ,
-                error_message=f"Max retries exceeded: {error_msg}"
-            )
-            await queue_service.move_to_dlq(email_id, error_msg)
+        # Requeue for retry (next attempt will check retry limit at the start)
+        # Note: In production, use Valkey ZADD with timestamp for delayed retry
+        await queue_service.requeue(email_id)
         
         return False
 
