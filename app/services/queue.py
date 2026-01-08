@@ -70,7 +70,7 @@ class QueueService:
     return #email_ids
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.redis_client = None
         self.queue_key = "email:queue"
         self.processing_key = "email:processing"
