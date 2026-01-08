@@ -162,7 +162,7 @@ Response:
 
 ## Architecture
 
-```
+```text
 ┌─────────┐    HTTP POST     ┌────────────┐    Valkey     ┌────────┐
 │ Client  │ ──────────────>  │   API      │ ───────────>  │ Worker │
 │         │                  │  Service   │               │        │

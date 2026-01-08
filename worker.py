@@ -77,7 +77,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             cc_addresses = json.loads(email.cc_addresses) if email.cc_addresses else None
             bcc_addresses = json.loads(email.bcc_addresses) if email.bcc_addresses else None
         except json.JSONDecodeError as e:
-            error_message = f"Invalid JSON in email address fields for email {email_id}: {e}"
+            error_message = f"Invalid JSON in email address fields for email {email_id}"
             logger.exception(error_message)
             await email_service.update_status(
                 db,
@@ -110,7 +110,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
     except Exception as e:
         error_msg = str(e)
-        logger.exception(f"Error processing email {email_id}: {error_msg}")
+        logger.exception(f"Error processing email {email_id}")
         
         # Update status to failed and increment retry count
         await email_service.update_status(
