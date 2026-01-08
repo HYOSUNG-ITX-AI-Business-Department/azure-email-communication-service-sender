@@ -107,7 +107,11 @@ async def get_email_status(
             if parsed_to is None:
                 parsed_to = []
         except (json.JSONDecodeError, TypeError):
-            logger.exception("Error parsing to_addresses for email %s", email_id)
+            logger.exception(
+                "Error parsing to_addresses for email %s: %r",
+                email_id,
+                email.to_addresses,
+            )
             # Fall back to a safe default - use empty list
             parsed_to = []
         
