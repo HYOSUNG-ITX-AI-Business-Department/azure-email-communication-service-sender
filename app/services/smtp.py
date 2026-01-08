@@ -22,14 +22,15 @@ class SMTPService:
         from_address: str,
         envelope_from: str,
         to_addresses: list[str],
-        cc_addresses: Optional[list[str]],
-        bcc_addresses: Optional[list[str]],
+        subject: str,
+        body: str,
+        *,
+        cc_addresses: Optional[list[str]] = None,
+        bcc_addresses: Optional[list[str]] = None,
         reply_to: Optional[str] = None,
         headers: Optional[dict[str, str]] = None,
         attachments: Optional[list[dict[str, str]]] = None,
-        subject: str,
-        body: str,
-        is_html: bool = False
+        is_html: bool = False,
     ) -> None:
         """
         Send email via ACS Email SMTP Relay
@@ -38,13 +39,13 @@ class SMTPService:
             from_address: Header From (RFC 5322.From)
             envelope_from: Envelope Sender (RFC 5321.MailFrom) 
             to_addresses: List of recipients
+            subject: Email subject
+            body: Email body
             cc_addresses: List of CC recipients
             bcc_addresses: List of BCC recipients
             reply_to: Reply-To address
             headers: Custom headers (allowlist enforced)
             attachments: List of attachment metadata dicts
-            subject: Email subject
-            body: Email body
             is_html: Whether body is HTML
         """
         # Create message body
