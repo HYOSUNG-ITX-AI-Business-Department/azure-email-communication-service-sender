@@ -1,7 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas.email import EmailRequest, EmailResponse, EmailStatusResponse, EmailStatus
+from app.schemas.email import (
+    EmailRequest,
+    EmailResponse,
+    EmailStatusResponse,
+    EmailStatus,
+    QueueStatsResponse,
+)
 from app.services.email import email_service, IdempotencyPayloadMismatchError
 from app.services.queue import queue_service
 import json
@@ -130,7 +136,7 @@ async def get_email_status(
         )
 
 
-@router.get("/", response_model=dict)
+@router.get("/", response_model=QueueStatsResponse)
 async def get_queue_stats():
     """
     Get queue statistics

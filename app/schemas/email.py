@@ -51,3 +51,10 @@ class EmailStatusResponse(BaseModel):
     error_message: Optional[str] = None
     sent_at: Optional[datetime] = None
     caller_id: Optional[str] = None
+
+
+class QueueStatsResponse(BaseModel):
+    """Response model for queue stats"""
+    queue_size: int
+    processing_size: int
+    dlq_size: int
