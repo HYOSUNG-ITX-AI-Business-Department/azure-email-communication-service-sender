@@ -55,7 +55,7 @@ async def send_email(
         # Add to queue
         await queue_service.enqueue(email_record.id)
         
-        logger.info(f"Email {email_record.id} submitted successfully")
+        logger.info("Email %s submitted successfully", email_record.id)
         
         return EmailResponse(
             email_id=email_record.id,
