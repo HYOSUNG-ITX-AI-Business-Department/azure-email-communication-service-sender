@@ -115,11 +115,13 @@ class QueueService:
     
     async def dequeue(self) -> str:
         """Get next email from queue (blocking)"""
-        # Use BRPOPLPUSH for atomicity - move from queue to processing
-        result = await self.redis_client.brpoplpush(
+        # Use BLMOVE for atomicity - move from queue to processing
+        result = await self.redis_client.blmove(
             self.queue_key,
             self.processing_key,
-            timeout=5
+            timeout=5,
+            src="RIGHT",
+            dest="LEFT",
         )
         if result:
             logger.info(f"Dequeued email {result}")
