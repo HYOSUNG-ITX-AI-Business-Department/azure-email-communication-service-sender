@@ -159,8 +159,8 @@ async def worker():
             except asyncio.CancelledError:
                 logger.info("Worker task cancelled")
                 break
-            except Exception as e:
-                logger.error(f"Error in worker loop: {str(e)}")
+            except Exception:
+                logger.exception("Error in worker loop")
                 await asyncio.sleep(5)  # Wait before retrying
                 
     finally:
