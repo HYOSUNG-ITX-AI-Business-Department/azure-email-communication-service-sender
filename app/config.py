@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
 from functools import lru_cache
 
 
@@ -37,9 +36,9 @@ class Settings(BaseSettings):
         if not self.allowed_mailfrom or not self.allowed_mailfrom.strip():
             raise ValueError("ALLOWED_MAILFROM configuration is required and cannot be empty")
         
-        # Split, strip whitespace, and filter out empty strings
+        # Split, strip whitespace, and filter out empty/whitespace-only strings
         addresses = [addr.strip() for addr in self.allowed_mailfrom.split(",")]
-        addresses = [addr for addr in addresses if addr]
+        addresses = [addr for addr in addresses if addr]  # Filter out empty strings
         
         if not addresses:
             raise ValueError("ALLOWED_MAILFROM must contain at least one valid email address")
@@ -47,7 +46,7 @@ class Settings(BaseSettings):
         return addresses
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance"""
     return Settings()

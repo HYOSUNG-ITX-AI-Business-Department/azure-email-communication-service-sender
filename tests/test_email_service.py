@@ -85,7 +85,7 @@ async def test_create_email_with_invalid_envelope_from(db_session):
 
 @pytest.mark.asyncio
 async def test_idempotency_key(db_session):
-    """Test idempotency prevents duplicate submissions"""
+    """Test idempotency prevents duplicate submissions per caller"""
     email_service = EmailService()
     
     with patch('app.config.settings') as mock_settings:
@@ -99,18 +99,37 @@ async def test_idempotency_key(db_session):
                 "to": ["recipient@example.com"],
                 "subject": "Test",
                 "body": "Test body",
-                "idempotency_key": "unique-key-123"
+                "idempotency_key": "unique-key-123",
+                "caller_id": "service-a"
             }
         )
         
         # First submission
         email1 = await email_service.create_email(db_session, request)
         
-        # Second submission with same key
+        # Second submission with same key and caller
         email2 = await email_service.create_email(db_session, request)
         
         # Should return the same email
         assert email1.id == email2.id
+        
+        # Different caller with same key should create new email
+        request_different_caller = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "idempotency_key": "unique-key-123",
+                "caller_id": "service-b"
+            }
+        )
+        
+        email3 = await email_service.create_email(db_session, request_different_caller)
+        
+        # Should create a new email for different caller
+        assert email3.id != email1.id
+        assert email3.caller_id == "service-b"
 
 
 @pytest.mark.asyncio

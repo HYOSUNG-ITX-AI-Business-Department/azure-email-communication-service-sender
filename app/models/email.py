@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, Text, DateTime, Integer, JSON
+from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, UniqueConstraint, Index
 from sqlalchemy.sql import func
 from datetime import datetime
 import uuid
@@ -15,7 +15,8 @@ class EmailRecord(Base):
     __tablename__ = "emails"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    idempotency_key = Column(String, unique=True, nullable=True, index=True)
+    caller_id = Column(String, nullable=True, index=True)  # Caller identifier for multi-tenant isolation
+    idempotency_key = Column(String, nullable=True, index=True)
     
     # Email addresses
     from_address = Column(String, nullable=False, index=True)
@@ -41,3 +42,9 @@ class EmailRecord(Base):
     
     # Audit trail
     audit_log = Column(JSON, nullable=True)  # List of status changes with timestamps
+    
+    # Composite unique constraint for multi-tenant idempotency
+    __table_args__ = (
+        UniqueConstraint('caller_id', 'idempotency_key', name='uix_caller_idempotency'),
+        Index('ix_caller_idempotency', 'caller_id', 'idempotency_key'),
+    )

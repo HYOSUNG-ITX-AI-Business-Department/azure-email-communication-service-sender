@@ -46,13 +46,13 @@ class EmailService:
                 f"envelope_from '{envelope_from}' is not in allowed MailFrom list"
             )
         
-        # Check idempotency
+        # Check idempotency per caller
         if email_request.idempotency_key:
             existing = await self.get_by_idempotency_key(
-                db, email_request.idempotency_key
+                db, email_request.caller_id, email_request.idempotency_key
             )
             if existing:
-                logger.info(f"Duplicate request with idempotency key: {email_request.idempotency_key}")
+                logger.info(f"Duplicate request with idempotency key: {email_request.idempotency_key} for caller: {email_request.caller_id}")
                 return existing
         
         # Create audit log
@@ -65,6 +65,7 @@ class EmailService:
         # Create email record
         email_record = EmailRecord(
             id=str(uuid.uuid4()),
+            caller_id=email_request.caller_id,
             idempotency_key=email_request.idempotency_key,
             from_address=email_request.from_address,
             envelope_from=envelope_from,
@@ -83,7 +84,7 @@ class EmailService:
         await db.commit()
         await db.refresh(email_record)
         
-        logger.info(f"Created email record {email_record.id}")
+        logger.info(f"Created email record {email_record.id} for caller {email_request.caller_id}")
         return email_record
     
     async def get_by_id(self, db: AsyncSession, email_id: str) -> EmailRecord:
@@ -94,11 +95,14 @@ class EmailService:
         return result.scalar_one_or_none()
     
     async def get_by_idempotency_key(
-        self, db: AsyncSession, idempotency_key: str
+        self, db: AsyncSession, caller_id: str, idempotency_key: str
     ) -> EmailRecord:
-        """Get email by idempotency key"""
+        """Get email by caller_id and idempotency key"""
         result = await db.execute(
-            select(EmailRecord).where(EmailRecord.idempotency_key == idempotency_key)
+            select(EmailRecord).where(
+                EmailRecord.caller_id == caller_id,
+                EmailRecord.idempotency_key == idempotency_key
+            )
         )
         return result.scalar_one_or_none()
     
