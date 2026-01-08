@@ -134,7 +134,15 @@ class EmailService:
             email.sent_at = datetime.now(timezone.utc)
         
         # Update audit log
-        audit_log = json.loads(email.audit_log) if email.audit_log else []
+        audit_log = []
+        if email.audit_log:
+            try:
+                audit_log = json.loads(email.audit_log)
+            except json.JSONDecodeError:
+                logger.error(
+                    "Corrupted audit_log for email %s, resetting to empty list",
+                    email_id,
+                )
         audit_log.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": status.value,

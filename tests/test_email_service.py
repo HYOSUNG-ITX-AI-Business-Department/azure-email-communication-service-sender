@@ -1,3 +1,4 @@
+import json
 import pytest
 from unittest.mock import patch
 from app.services.email import EmailService
@@ -161,6 +162,14 @@ async def test_update_status_with_audit_trail(db_session):
         
         assert updated.status == EmailStatus.QUEUED
         assert updated.audit_log is not None
+
+        audit_entries = json.loads(updated.audit_log)
+        assert len(audit_entries) >= 1
+        latest_entry = audit_entries[-1]
+        assert latest_entry["status"] == EmailStatus.QUEUED.value
+        assert "timestamp" in latest_entry
+        assert latest_entry["message"] == "Status updated to queued"
+        assert latest_entry["retry_count"] == 0
         
         # Update again
         updated = await email_service.update_status(
@@ -171,3 +180,38 @@ async def test_update_status_with_audit_trail(db_session):
         
         assert updated.status == EmailStatus.SENT
         assert updated.sent_at is not None
+
+
+@pytest.mark.asyncio
+async def test_update_status_handles_corrupted_audit_log(db_session):
+    """Test status update handles corrupted audit log"""
+    email_service = EmailService()
+
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body"
+            }
+        )
+
+        email = await email_service.create_email(db_session, request)
+        email.audit_log = "not-json"
+        await db_session.commit()
+        await db_session.refresh(email)
+
+        updated = await email_service.update_status(
+            db_session,
+            email.id,
+            EmailStatus.QUEUED
+        )
+
+        audit_entries = json.loads(updated.audit_log)
+        assert len(audit_entries) == 1
+        assert audit_entries[0]["status"] == EmailStatus.QUEUED.value
