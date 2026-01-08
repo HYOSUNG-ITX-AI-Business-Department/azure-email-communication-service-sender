@@ -29,10 +29,10 @@ PERMANENT_SMTP_CODES = {500, 501, 502, 503, 504, 550, 551, 552, 553, 554}
 shutdown_flag = False
 
 
-def signal_handler(signum, frame):
+def signal_handler(signum, _frame):
     """Handle shutdown signals"""
     global shutdown_flag
-    logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+    logger.info("Received signal %s, initiating graceful shutdown...", signum)
     shutdown_flag = True
 
 
