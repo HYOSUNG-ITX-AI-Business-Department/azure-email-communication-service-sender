@@ -53,33 +53,39 @@ The system consists of two main components:
 ### Local Development
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/seonghobae/azure-email-communication-service-sender.git
 cd azure-email-communication-service-sender
 ```
 
-2. Install dependencies:
+1. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Configure environment variables:
+1. Configure environment variables:
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
-4. Start Valkey (Redis-compatible):
+1. Start Valkey (Redis-compatible):
+
 ```bash
 docker run -d -p 6379:6379 valkey/valkey:7-alpine
 ```
 
-5. Run the API service:
+1. Run the API service:
+
 ```bash
 python -m app.main
 ```
 
-6. Run the worker service (in another terminal):
+1. Run the worker service (in another terminal):
+
 ```bash
 python worker.py
 ```
@@ -87,17 +93,20 @@ python worker.py
 ### Docker Deployment
 
 1. Configure environment variables:
+
 ```bash
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
-2. Start all services:
+1. Start all services:
+
 ```bash
 docker-compose up -d
 ```
 
-3. View logs:
+1. View logs:
+
 ```bash
 docker-compose logs -f
 ```
