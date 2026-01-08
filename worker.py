@@ -4,6 +4,7 @@ import logging
 import json
 import redis
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.exc import OperationalError
 from aiosmtplib import SMTPException, SMTPResponseException
 from app.config import settings
 from app.services.queue import queue_service
@@ -142,9 +143,19 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         logger.info("Successfully sent email %s", email_id)
         return True
         
+    except OperationalError as exc:
+        error_msg = str(exc)
+        logger.exception("Database error processing email %s", email_id)
+        await email_service.update_status(
+            db, email_id, EmailStatus.FAILED,
+            error_message=error_msg,
+            increment_retry=False
+        )
+        await queue_service.complete(email_id)
+        return False
     except Exception as e:
         error_msg = str(e)
-        logger.exception(f"Error processing email {email_id}")
+        logger.exception("Error processing email %s", email_id)
         
         # Update status to failed and increment retry count
         updated = await email_service.update_status(
