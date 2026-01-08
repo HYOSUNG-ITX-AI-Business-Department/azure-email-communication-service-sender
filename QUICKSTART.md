@@ -16,13 +16,13 @@ git clone https://github.com/seonghobae/azure-email-communication-service-sender
 cd azure-email-communication-service-sender
 ```
 
-1. Install dependencies:
+2. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-1. Configure environment:
+3. Configure environment:
 
 ```bash
 cp .env.example .env
