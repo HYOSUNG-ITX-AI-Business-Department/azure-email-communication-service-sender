@@ -1,7 +1,6 @@
 import asyncio
 import contextlib
 import logging
-import json
 import redis
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.exc import OperationalError
@@ -83,38 +82,12 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         # Update status to sending
         await email_service.update_status(db, email_id, EmailStatus.SENDING)
         
-        # Parse addresses and metadata from JSON with error handling
-        try:
-            to_addresses = email.to_addresses
-            if isinstance(to_addresses, str):
-                to_addresses = json.loads(to_addresses)
-
-            cc_addresses = email.cc_addresses
-            if isinstance(cc_addresses, str):
-                cc_addresses = json.loads(cc_addresses)
-
-            bcc_addresses = email.bcc_addresses
-            if isinstance(bcc_addresses, str):
-                bcc_addresses = json.loads(bcc_addresses)
-            
-            headers = email.headers
-            if isinstance(headers, str):
-                headers = json.loads(headers)
-
-            attachments = email.attachments
-            if isinstance(attachments, str):
-                attachments = json.loads(attachments)
-        except json.JSONDecodeError:
-            error_message = f"Invalid JSON in email metadata fields for email {email_id}"
-            logger.exception(error_message)
-            await email_service.update_status(
-                db,
-                email_id,
-                EmailStatus.DLQ,
-                error_message=error_message,
-            )
-            await queue_service.move_to_dlq(email_id, error_message)
-            return False
+        # Load addresses and metadata
+        to_addresses = email.to_addresses
+        cc_addresses = email.cc_addresses
+        bcc_addresses = email.bcc_addresses
+        headers = email.headers
+        attachments = email.attachments
         
         # Send email via SMTP
         logger.info("Sending email %s (retry: %s)", email_id, email.retry_count)
