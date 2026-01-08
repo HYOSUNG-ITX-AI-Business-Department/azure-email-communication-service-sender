@@ -1,6 +1,8 @@
 import aiosmtplib
+import re
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from html import unescape
 from typing import Optional
 import logging
 from app.config import settings
@@ -38,6 +40,9 @@ class SMTPService:
         # Create message
         if is_html:
             msg = MIMEMultipart('alternative')
+            # Plain-text fallback for clients that do not render HTML.
+            plain_text = unescape(re.sub(r"<[^>]+>", "", body))
+            msg.attach(MIMEText(plain_text, 'plain', 'utf-8'))
             msg.attach(MIMEText(body, 'html', 'utf-8'))
         else:
             msg = MIMEText(body, 'plain', 'utf-8')
