@@ -71,7 +71,8 @@ class EmailService:
     def validate_envelope_from(self, envelope_from: str) -> bool:
         """Validate that envelope_from is in allowed list"""
         allowed = settings.get_allowed_mailfrom_list()
-        return envelope_from in allowed
+        allowed_normalized = {address.lower() for address in allowed}
+        return envelope_from.lower() in allowed_normalized
     
     async def create_email(
         self,

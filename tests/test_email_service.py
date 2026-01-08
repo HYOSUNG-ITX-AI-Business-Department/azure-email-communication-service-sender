@@ -60,6 +60,31 @@ async def test_create_email_with_explicit_envelope_from(db_session):
 
 
 @pytest.mark.asyncio
+async def test_create_email_with_mixed_case_envelope_from(db_session):
+    """Test envelope_from validation is case-insensitive"""
+    email_service = EmailService()
+
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "envelope_from": "Sender@YourDomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body"
+            }
+        )
+
+        email = await email_service.create_email(db_session, request)
+
+        assert email.envelope_from.lower() == "sender@yourdomain.com"
+
+
+@pytest.mark.asyncio
 async def test_create_email_with_invalid_envelope_from(db_session):
     """Test email creation fails with invalid envelope_from"""
     email_service = EmailService()
