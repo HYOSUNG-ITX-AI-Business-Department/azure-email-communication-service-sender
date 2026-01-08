@@ -1,7 +1,7 @@
 import json
 import pytest
 from unittest.mock import patch
-from app.services.email import EmailService
+from app.services.email import EmailService, IdempotencyPayloadMismatchError
 from app.schemas.email import EmailRequest, EmailStatus
 
 
@@ -130,6 +130,44 @@ async def test_idempotency_key(db_session):
         # Should create a new email for different caller
         assert email3.id != email1.id
         assert email3.caller_id == "service-b"
+
+
+@pytest.mark.asyncio
+async def test_idempotency_key_payload_mismatch(db_session):
+    """Test idempotency key reuse with different payload raises conflict"""
+    email_service = EmailService()
+
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "idempotency_key": "unique-key-123",
+                "caller_id": "service-a"
+            }
+        )
+
+        await email_service.create_email(db_session, request)
+
+        request_modified = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Changed",
+                "body": "Test body",
+                "idempotency_key": "unique-key-123",
+                "caller_id": "service-a"
+            }
+        )
+
+        with pytest.raises(IdempotencyPayloadMismatchError):
+            await email_service.create_email(db_session, request_modified)
 
 
 @pytest.mark.asyncio

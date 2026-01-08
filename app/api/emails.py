@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas.email import EmailRequest, EmailResponse, EmailStatusResponse, EmailStatus
-from app.services.email import email_service
+from app.services.email import email_service, IdempotencyPayloadMismatchError
 from app.services.queue import queue_service
 import json
 import logging
@@ -54,6 +54,12 @@ async def send_email(
             created_at=email_record.created_at
         )
         
+    except IdempotencyPayloadMismatchError as e:
+        logger.exception("Idempotency payload mismatch")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
     except ValueError as e:
         logger.exception("Validation error")
         raise HTTPException(

@@ -11,8 +11,62 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class IdempotencyPayloadMismatchError(ValueError):
+    """Raised when idempotency key is reused with different payload."""
+
+
 class EmailService:
     """Service for email operations"""
+
+    def _normalize_addresses(self, addresses: list[str] | None) -> list[str]:
+        return addresses or []
+
+    def _parse_stored_addresses(
+        self,
+        raw_addresses: str | None,
+        email_id: str,
+        field_name: str,
+    ) -> list[str] | None:
+        if not raw_addresses:
+            return []
+        try:
+            return json.loads(raw_addresses)
+        except (json.JSONDecodeError, TypeError):
+            logger.error(
+                "Invalid %s JSON for email %s while checking idempotency payload",
+                field_name,
+                email_id,
+            )
+            return None
+
+    def _payload_matches(
+        self,
+        existing: EmailRecord,
+        email_request: EmailRequest,
+        envelope_from: str,
+    ) -> bool:
+        stored_to = self._parse_stored_addresses(
+            existing.to_addresses, existing.id, "to_addresses"
+        )
+        stored_cc = self._parse_stored_addresses(
+            existing.cc_addresses, existing.id, "cc_addresses"
+        )
+        stored_bcc = self._parse_stored_addresses(
+            existing.bcc_addresses, existing.id, "bcc_addresses"
+        )
+        if stored_to is None or stored_cc is None or stored_bcc is None:
+            return False
+
+        return (
+            existing.from_address == email_request.from_address
+            and existing.envelope_from == envelope_from
+            and stored_to == self._normalize_addresses(email_request.to)
+            and stored_cc == self._normalize_addresses(email_request.cc)
+            and stored_bcc == self._normalize_addresses(email_request.bcc)
+            and existing.subject == email_request.subject
+            and existing.body == email_request.body
+            and bool(existing.is_html) == bool(email_request.html)
+        )
     
     def validate_envelope_from(self, envelope_from: str) -> bool:
         """Validate that envelope_from is in allowed list"""
@@ -53,6 +107,10 @@ class EmailService:
                 db, email_request.caller_id, email_request.idempotency_key
             )
             if existing:
+                if not self._payload_matches(existing, email_request, envelope_from):
+                    raise IdempotencyPayloadMismatchError(
+                        "Idempotency key reuse with different payload"
+                    )
                 logger.info(f"Duplicate request with idempotency key: {email_request.idempotency_key} for caller: {email_request.caller_id}")
                 return existing
         
