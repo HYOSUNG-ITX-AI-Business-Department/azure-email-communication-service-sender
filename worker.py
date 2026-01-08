@@ -245,9 +245,14 @@ async def worker():
                 break
             except RedisError:
                 logger.exception("Redis error in worker loop, reconnecting...")
+                if delayed_task and not delayed_task.done():
+                    delayed_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await delayed_task
                 await queue_service.disconnect()
                 await asyncio.sleep(5)
                 await queue_service.connect()
+                delayed_task = asyncio.create_task(poll_delayed_queue())
             except Exception:
                 logger.exception("Error in worker loop")
                 await asyncio.sleep(5)  # Wait before retrying
