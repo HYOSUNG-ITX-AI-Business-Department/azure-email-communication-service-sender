@@ -183,8 +183,8 @@ def main():
         asyncio.run(worker())
     except KeyboardInterrupt:
         logger.info("Worker interrupted by user")
-    except Exception as e:
-        logger.error(f"Worker error: {str(e)}")
+    except Exception:
+        logger.exception("Worker error")
         sys.exit(1)
 
 
