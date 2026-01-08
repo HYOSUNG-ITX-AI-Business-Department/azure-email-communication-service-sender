@@ -47,6 +47,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
     Returns:
         bool: True if successful, False if failed
     """
+    db_error = False
     try:
         # Get email record
         email = await email_service.get_by_id(db, email_id)
@@ -166,10 +167,19 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         return True
         
     except OperationalError as exc:
+        db_error = True
         error_msg = str(exc)
         logger.exception("Database error processing email %s", email_id)
-        # DB session may be in a bad state; requeue for retry without status update
-        delay_seconds = settings.retry_delay_seconds
+        # DB session may be in a bad state; requeue for retry with backoff
+        db_error_count = await queue_service.increment_db_error_count(email_id)
+        retry_step = min(db_error_count, settings.max_retries)
+        delay_seconds = settings.retry_delay_seconds * (2 ** max(retry_step - 1, 0))
+        logger.warning(
+            "Requeuing email %s after DB error (attempt %s) in %s seconds",
+            email_id,
+            db_error_count,
+            delay_seconds,
+        )
         await queue_service.requeue_delayed(email_id, delay_seconds)
         return False
     except Exception as e:
@@ -188,6 +198,10 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         await queue_service.requeue_delayed(email_id, delay_seconds)
         
         return False
+    finally:
+        if not db_error:
+            with contextlib.suppress(redis.RedisError):
+                await queue_service.clear_db_error_count(email_id)
 
 
 async def poll_delayed_queue(poll_interval: float = 1.0, batch_size: int = 100) -> None:

@@ -76,10 +76,14 @@ class QueueService:
         self.processing_key = "email:processing"
         self.dlq_key = "email:dlq"
         self.delayed_queue_key = "email:delayed"
+        self.db_error_key_prefix = "email:db-error"
         self._move_to_dlq_script = None
         self._requeue_script = None
         self._requeue_delayed_script = None
         self._move_ready_delayed_script = None
+
+    def _db_error_key(self, email_id: str) -> str:
+        return f"{self.db_error_key_prefix}:{email_id}"
     
     async def connect(self):
         """Connect to Redis"""
@@ -119,6 +123,39 @@ class QueueService:
             logger.info("Enqueued email %s", email_id)
         except redis.RedisError:
             logger.exception("Failed to enqueue email %s", email_id)
+            raise
+
+    async def increment_db_error_count(self, email_id: str) -> int:
+        """Increment the DB error counter for an email.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        key = self._db_error_key(email_id)
+        try:
+            count = await self.redis_client.incr(key)
+        except redis.RedisError:
+            logger.exception(
+                "Failed to increment DB error counter for email %s",
+                email_id,
+            )
+            raise
+        return int(count)
+
+    async def clear_db_error_count(self, email_id: str) -> None:
+        """Clear the DB error counter for an email.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        key = self._db_error_key(email_id)
+        try:
+            await self.redis_client.delete(key)
+        except redis.RedisError:
+            logger.exception(
+                "Failed to clear DB error counter for email %s",
+                email_id,
+            )
             raise
     
     async def dequeue(self) -> str:
