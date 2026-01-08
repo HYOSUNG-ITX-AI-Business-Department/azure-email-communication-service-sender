@@ -104,9 +104,8 @@ class EmailService:
                 f"envelope_from '{envelope_from}' is not in allowed MailFrom list"
             )
         
-        # Check idempotency per caller
-        # Note: idempotency is only enforced when both caller_id and idempotency_key are provided
-        if email_request.idempotency_key and email_request.caller_id:
+        # Check idempotency per caller when a key is provided
+        if email_request.idempotency_key:
             existing = await self.get_by_idempotency_key(
                 db, email_request.caller_id, email_request.idempotency_key
             )

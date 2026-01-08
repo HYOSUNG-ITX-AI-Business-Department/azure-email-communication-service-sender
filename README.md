@@ -161,8 +161,8 @@ Configuration is done via environment variables (`.env` file):
 - `subject` (required): Email subject
 - `body` (required): Email body content
 - `html` (optional): Whether body is HTML (default: false)
-- `caller_id` (optional): Caller identifier for multi-tenant isolation
-- `idempotency_key` (optional): Unique key to prevent duplicate submissions (enforced per caller_id when provided)
+- `caller_id` (required): Caller identifier for multi-tenant isolation
+- `idempotency_key` (optional): Unique key to prevent duplicate submissions
 
 **Response** (201 Created):
 

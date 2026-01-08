@@ -14,7 +14,7 @@ class EmailRecord(Base):
     __tablename__ = "emails"
     
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    caller_id = Column(String, nullable=True, index=True)  # Caller identifier for multi-tenant isolation
+    caller_id = Column(String, nullable=False, index=True)  # Caller identifier for multi-tenant isolation
     idempotency_key = Column(String, nullable=True, index=True)
     
     # Email addresses

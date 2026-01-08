@@ -1,6 +1,7 @@
 import json
 import pytest
 from unittest.mock import patch
+from pydantic import ValidationError
 from app.services.email import EmailService, IdempotencyPayloadMismatchError
 from app.schemas.email import EmailRequest, EmailStatus
 
@@ -21,7 +22,8 @@ async def test_create_email_with_default_envelope_from(db_session):
                 "from": "sender@yourdomain.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test",
-                "body": "Test body"
+                "body": "Test body",
+                "caller_id": "service-a"
             }
         )
         
@@ -49,7 +51,8 @@ async def test_create_email_with_explicit_envelope_from(db_session):
                 "envelope_from": "noreply@yourdomain.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test",
-                "body": "Test body"
+                "body": "Test body",
+                "caller_id": "service-a"
             }
         )
         
@@ -75,7 +78,8 @@ async def test_create_email_with_mixed_case_envelope_from(db_session):
                 "envelope_from": "Sender@YourDomain.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test",
-                "body": "Test body"
+                "body": "Test body",
+                "caller_id": "service-a"
             }
         )
 
@@ -101,7 +105,8 @@ async def test_create_email_with_invalid_envelope_from(db_session):
                 "envelope_from": "notallowed@yourdomain.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test",
-                "body": "Test body"
+                "body": "Test body",
+                "caller_id": "service-a"
             }
         )
         
@@ -159,29 +164,23 @@ async def test_idempotency_key(db_session):
 
 
 @pytest.mark.asyncio
-async def test_idempotency_not_enforced_without_caller_id(db_session):
-    """Test idempotency is not enforced when caller_id is missing"""
-    email_service = EmailService()
-
+async def test_caller_id_is_required(db_session):
+    """Test caller_id is required for email requests"""
     with patch('app.services.email.settings') as mock_settings:
         mock_settings.get_allowed_mailfrom_list.return_value = [
             "sender@yourdomain.com"
         ]
 
-        request = EmailRequest(
-            **{
-                "from": "sender@yourdomain.com",
-                "to": ["recipient@example.com"],
-                "subject": "Test",
-                "body": "Test body",
-                "idempotency_key": "key-without-caller"
-            }
-        )
-
-        email1 = await email_service.create_email(db_session, request)
-        email2 = await email_service.create_email(db_session, request)
-
-        assert email1.id != email2.id
+        with pytest.raises(ValidationError):
+            EmailRequest(
+                **{
+                    "from": "sender@yourdomain.com",
+                    "to": ["recipient@example.com"],
+                    "subject": "Test",
+                    "body": "Test body",
+                    "idempotency_key": "key-without-caller"
+                }
+            )
 
 
 @pytest.mark.asyncio
@@ -263,7 +262,8 @@ async def test_update_status_with_audit_trail(db_session):
                 "from": "sender@yourdomain.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test",
-                "body": "Test body"
+                "body": "Test body",
+                "caller_id": "service-a"
             }
         )
         
@@ -315,7 +315,8 @@ async def test_update_status_handles_corrupted_audit_log(db_session):
                 "from": "sender@yourdomain.com",
                 "to": ["recipient@example.com"],
                 "subject": "Test",
-                "body": "Test body"
+                "body": "Test body",
+                "caller_id": "service-a"
             }
         )
 
