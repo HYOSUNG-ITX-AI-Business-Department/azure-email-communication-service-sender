@@ -127,6 +127,7 @@ Configuration is done via environment variables (`.env` file):
 **Endpoint**: `POST /api/v1/emails/`
 
 **Request Body**:
+
 ```json
 {
   "from": "sender@yourdomain.com",
@@ -155,6 +156,7 @@ Configuration is done via environment variables (`.env` file):
 - `idempotency_key` (optional): Unique key to prevent duplicate submissions (enforced per caller_id when provided)
 
 **Response** (201 Created):
+
 ```json
 {
   "email_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -165,6 +167,7 @@ Configuration is done via environment variables (`.env` file):
 ```
 
 **Example with curl**:
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/emails/ \
   -H "Content-Type: application/json" \
@@ -181,6 +184,7 @@ curl -X POST http://localhost:8000/api/v1/emails/ \
 **Endpoint**: `GET /api/v1/emails/{email_id}`
 
 **Response** (200 OK):
+
 ```json
 {
   "email_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -202,6 +206,7 @@ curl -X POST http://localhost:8000/api/v1/emails/ \
 **Endpoint**: `GET /api/v1/emails/`
 
 **Response** (200 OK):
+
 ```json
 {
   "queue_size": 10,
