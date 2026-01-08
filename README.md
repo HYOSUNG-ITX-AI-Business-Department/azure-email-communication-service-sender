@@ -27,7 +27,7 @@ The system consists of two main components:
 1. **Sender Service (API)**: FastAPI-based REST API that validates, stores, and queues email requests
 2. **Worker Service**: Background worker that dequeues emails and sends them via SMTP
 
-```
+```text
 ┌─────────┐    REST API     ┌────────────┐    Valkey Queue   ┌────────┐    SMTP    ┌──────────────┐
 │ Client  │ ──────────────> │   Sender   │ ───────────────> │ Worker │ ─────────> │ ACS SMTP     │
 │         │                 │  Service   │                   │        │            │ Relay        │
@@ -256,8 +256,8 @@ Logs can be collected and analyzed using standard log aggregation tools.
 ## API Documentation
 
 Interactive API documentation is available at:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+- Swagger UI: <http://localhost:8000/docs>
+- ReDoc: <http://localhost:8000/redoc>
 
 ## License
 

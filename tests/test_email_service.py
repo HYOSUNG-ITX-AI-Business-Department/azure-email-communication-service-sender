@@ -9,7 +9,7 @@ async def test_create_email_with_default_envelope_from(db_session):
     """Test email creation with default envelope_from (aligned)"""
     email_service = EmailService()
     
-    with patch('app.config.settings') as mock_settings:
+    with patch('app.services.email.settings') as mock_settings:
         mock_settings.get_allowed_mailfrom_list.return_value = [
             "sender@yourdomain.com",
             "noreply@yourdomain.com"
@@ -36,7 +36,7 @@ async def test_create_email_with_explicit_envelope_from(db_session):
     """Test email creation with explicit envelope_from"""
     email_service = EmailService()
     
-    with patch('app.config.settings') as mock_settings:
+    with patch('app.services.email.settings') as mock_settings:
         mock_settings.get_allowed_mailfrom_list.return_value = [
             "sender@yourdomain.com",
             "noreply@yourdomain.com"
@@ -63,7 +63,7 @@ async def test_create_email_with_invalid_envelope_from(db_session):
     """Test email creation fails with invalid envelope_from"""
     email_service = EmailService()
     
-    with patch('app.config.settings') as mock_settings:
+    with patch('app.services.email.settings') as mock_settings:
         mock_settings.get_allowed_mailfrom_list.return_value = [
             "sender@yourdomain.com"
         ]
@@ -87,7 +87,7 @@ async def test_idempotency_key(db_session):
     """Test idempotency prevents duplicate submissions per caller"""
     email_service = EmailService()
     
-    with patch('app.config.settings') as mock_settings:
+    with patch('app.services.email.settings') as mock_settings:
         mock_settings.get_allowed_mailfrom_list.return_value = [
             "sender@yourdomain.com"
         ]
@@ -136,7 +136,7 @@ async def test_update_status_with_audit_trail(db_session):
     """Test status update creates audit trail"""
     email_service = EmailService()
     
-    with patch('app.config.settings') as mock_settings:
+    with patch('app.services.email.settings') as mock_settings:
         mock_settings.get_allowed_mailfrom_list.return_value = [
             "sender@yourdomain.com"
         ]
