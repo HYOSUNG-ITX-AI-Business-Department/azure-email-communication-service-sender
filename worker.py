@@ -22,6 +22,9 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Common permanent SMTP response codes; treat others as retryable.
+PERMANENT_SMTP_CODES = {500, 501, 502, 503, 504, 550, 551, 552, 553, 554}
+
 # Graceful shutdown flag
 shutdown_flag = False
 
@@ -116,7 +119,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             error_msg = str(exc)
             logger.exception("SMTP response error for email %s", email_id)
 
-            if exc.code and exc.code >= 500:
+            if exc.code and exc.code in PERMANENT_SMTP_CODES:
                 await email_service.update_status(
                     db, email_id, EmailStatus.DLQ,
                     error_message=f"Permanent SMTP error: {error_msg}",
