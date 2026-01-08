@@ -28,7 +28,7 @@ The system consists of two main components:
 2. **Worker Service**: Background worker that dequeues emails and sends them via SMTP
 
 ```
-┌─────────┐    REST API     ┌────────────┐    Redis Queue    ┌────────┐    SMTP    ┌──────────────┐
+┌─────────┐    REST API     ┌────────────┐    Valkey Queue   ┌────────┐    SMTP    ┌──────────────┐
 │ Client  │ ──────────────> │   Sender   │ ───────────────> │ Worker │ ─────────> │ ACS SMTP     │
 │         │                 │  Service   │                   │        │            │ Relay        │
 └─────────┘                 └────────────┘                   └────────┘            │ (Azure)      │
@@ -43,7 +43,7 @@ The system consists of two main components:
 ## Prerequisites
 
 - Python 3.11+
-- Redis (for message queue)
+- Valkey (Redis-compatible message queue)
 - Azure Communication Services Email resource
 - Entra-based SMTP credentials
 
@@ -68,9 +68,9 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-4. Start Redis:
+4. Start Valkey (Redis-compatible):
 ```bash
-docker run -d -p 6379:6379 redis:7-alpine
+docker run -d -p 6379:6379 valkey/valkey:7-alpine
 ```
 
 5. Run the API service:
@@ -112,7 +112,7 @@ Configuration is done via environment variables (`.env` file):
 | `SMTP_USERNAME` | Entra-based SMTP username | (required) |
 | `SMTP_PASSWORD` | SMTP password | (required) |
 | `ALLOWED_MAILFROM` | Comma-separated list of allowed sender addresses | (required) |
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
+| `REDIS_URL` | Valkey/Redis connection URL | `redis://localhost:6379/0` |
 | `DATABASE_URL` | Database connection URL | `sqlite+aiosqlite:///./emails.db` |
 | `MAX_RETRIES` | Maximum retry attempts | `3` |
 | `RETRY_DELAY_SECONDS` | Initial retry delay (exponential backoff) | `60` |
@@ -210,7 +210,7 @@ curl -X POST http://localhost:8000/api/v1/emails/ \
 ## Email Status Flow
 
 1. **pending** → Email created and validated
-2. **queued** → Email added to Redis queue
+2. **queued** → Email added to Valkey queue
 3. **sending** → Worker is sending the email
 4. **sent** → Email successfully sent
 5. **failed** → Email failed to send (will retry)

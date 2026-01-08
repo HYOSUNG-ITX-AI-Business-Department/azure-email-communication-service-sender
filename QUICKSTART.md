@@ -2,7 +2,7 @@
 
 ## Prerequisites
 - Python 3.11+
-- Redis server
+- Valkey server (Redis-compatible)
 - Azure Communication Services Email resource with SMTP credentials
 
 ## Installation
@@ -39,9 +39,9 @@ docker-compose down
 
 ## Running Locally
 
-Terminal 1 - Start Redis:
+Terminal 1 - Start Valkey:
 ```bash
-docker run -d -p 6379:6379 redis:7-alpine
+docker run -d -p 6379:6379 valkey/valkey:7-alpine
 ```
 
 Terminal 2 - Start API Server:
@@ -106,7 +106,7 @@ curl http://localhost:8000/api/v1/emails/
 ### Optional
 - `SMTP_HOST` - SMTP server (default: smtp.azurecomm.net)
 - `SMTP_PORT` - SMTP port (default: 587)
-- `REDIS_URL` - Redis connection URL (default: redis://localhost:6379/0)
+- `REDIS_URL` - Valkey/Redis connection URL (default: redis://localhost:6379/0)
 - `DATABASE_URL` - Database URL (default: sqlite+aiosqlite:///./emails.db)
 - `MAX_RETRIES` - Maximum retry attempts (default: 3)
 - `RETRY_DELAY_SECONDS` - Initial retry delay (default: 60)
@@ -155,14 +155,14 @@ Response:
 - Add the sender address to `ALLOWED_MAILFROM` environment variable
 - Verify the address is verified in Azure Communication Services
 
-### Connection refused to Redis
-- Ensure Redis is running on the configured host/port
+### Connection refused to Valkey/Redis
+- Ensure Valkey is running on the configured host/port
 - Check `REDIS_URL` environment variable
 
 ## Architecture
 
 ```
-┌─────────┐    HTTP POST     ┌────────────┐    Redis      ┌────────┐
+┌─────────┐    HTTP POST     ┌────────────┐    Valkey     ┌────────┐
 │ Client  │ ──────────────>  │   API      │ ───────────>  │ Worker │
 │         │                  │  Service   │               │        │
 └─────────┘                  └────────────┘               └────────┘

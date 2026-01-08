@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import List, Optional
+from typing import Optional
 from functools import lru_cache
 
 
@@ -32,11 +32,19 @@ class Settings(BaseSettings):
         case_sensitive = False
         env_file_encoding = 'utf-8'
     
-    def get_allowed_mailfrom_list(self) -> List[str]:
+    def get_allowed_mailfrom_list(self) -> list[str]:
         """Parse comma-separated allowed MailFrom addresses"""
-        if not self.allowed_mailfrom:
-            return []
-        return [addr.strip() for addr in self.allowed_mailfrom.split(",")]
+        if not self.allowed_mailfrom or not self.allowed_mailfrom.strip():
+            raise ValueError("ALLOWED_MAILFROM configuration is required and cannot be empty")
+        
+        # Split, strip whitespace, and filter out empty strings
+        addresses = [addr.strip() for addr in self.allowed_mailfrom.split(",")]
+        addresses = [addr for addr in addresses if addr]
+        
+        if not addresses:
+            raise ValueError("ALLOWED_MAILFROM must contain at least one valid email address")
+        
+        return addresses
 
 
 @lru_cache()

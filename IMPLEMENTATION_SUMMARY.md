@@ -21,7 +21,7 @@ Successfully implemented a complete Azure Email Communication Service Sender wit
 - ✅ FastAPI-based REST API for email submissions
 - ✅ Request validation (addresses, required fields)
 - ✅ Email storage in SQLite database
-- ✅ Automatic queuing in Redis
+- ✅ Automatic queuing in Valkey (Redis-compatible)
 
 ### 4. Worker Service
 - ✅ Background worker processes queue
@@ -52,7 +52,7 @@ Successfully implemented a complete Azure Email Communication Service Sender wit
 ```
 Client → REST API (FastAPI) → SQLite Database
               ↓
-         Redis Queue
+         Valkey Queue
               ↓
          Worker Service → SMTP (smtp.azurecomm.net:587)
 ```
@@ -83,7 +83,7 @@ Client → REST API (FastAPI) → SQLite Database
 
 2. **HTML Email Support**: Properly constructs MIMEMultipart messages for HTML emails
 
-3. **Retry Strategy**: Immediate requeue for retries (production note: should use Redis sorted sets for delayed retry)
+3. **Retry Strategy**: Immediate requeue for retries (production note: should use Valkey/Redis sorted sets for delayed retry)
 
 4. **Error Handling**: Comprehensive error handling with appropriate HTTP status codes
 
@@ -100,7 +100,7 @@ Client → REST API (FastAPI) → SQLite Database
 - ✅ Security (no vulnerabilities)
 
 ### Future Enhancements (Optional)
-- Implement delayed retry using Redis sorted sets (ZADD) instead of immediate requeue
+- Implement delayed retry using Valkey/Redis sorted sets (ZADD) instead of immediate requeue
 - Add metrics/monitoring (Prometheus, Grafana)
 - Implement rate limiting
 - Add email templating system
