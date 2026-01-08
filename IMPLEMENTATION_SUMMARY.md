@@ -118,8 +118,16 @@ SMTP_PORT=587
 SMTP_USERNAME=<your-entra-smtp-username>
 SMTP_PASSWORD=<your-smtp-password>
 ALLOWED_MAILFROM=<comma-separated-verified-addresses>
+ALLOWED_HEADERS=<comma-separated-allowed-headers>  # optional
 REDIS_URL=redis://localhost:6379/0
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/emails
+MAX_RETRIES=3
+RETRY_DELAY_SECONDS=60
+API_HOST=127.0.0.1
+API_PORT=8000
 ```
+
+See `.env.example` for the full configuration.
 
 ## Conclusion
 
