@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -25,8 +25,7 @@ class EmailRequest(BaseModel):
     html: Optional[bool] = Field(False, description="Whether body is HTML")
     idempotency_key: Optional[str] = Field(None, description="Idempotency key for duplicate prevention")
     
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class EmailResponse(BaseModel):

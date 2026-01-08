@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.email import EmailRecord
 from app.schemas.email import EmailRequest, EmailStatus
 from app.config import settings
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import json
 import logging
@@ -57,7 +57,7 @@ class EmailService:
         
         # Create audit log
         audit_log = [{
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": EmailStatus.PENDING,
             "message": "Email created"
         }]
@@ -117,7 +117,7 @@ class EmailService:
         
         # Update status
         email.status = status
-        email.updated_at = datetime.utcnow()
+        email.updated_at = datetime.now(timezone.utc)
         
         if error_message:
             email.error_message = error_message
@@ -126,12 +126,12 @@ class EmailService:
             email.retry_count += 1
         
         if status == EmailStatus.SENT:
-            email.sent_at = datetime.utcnow()
+            email.sent_at = datetime.now(timezone.utc)
         
         # Update audit log
         audit_log = json.loads(email.audit_log) if email.audit_log else []
         audit_log.append({
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": status,
             "message": error_message or f"Status updated to {status}",
             "retry_count": email.retry_count

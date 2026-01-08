@@ -1,10 +1,13 @@
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, String, Text, DateTime, Integer, JSON
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from datetime import datetime
 import uuid
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    """Base class for declarative models"""
+    pass
 
 
 class EmailRecord(Base):
