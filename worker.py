@@ -173,19 +173,27 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         error_msg = str(e)
         logger.exception("Error processing email %s", email_id)
         
-        # Update status to failed and increment retry count
-        updated = await email_service.update_status(
-            db, email_id, EmailStatus.FAILED,
-            error_message=error_msg,
-            increment_retry=True
-        )
-        
-        # Requeue for retry with exponential backoff
-        delay_seconds = calculate_backoff_delay(
-            updated.retry_count,
-            settings.retry_delay_seconds,
-        )
-        await queue_service.requeue_delayed(email_id, delay_seconds)
+        try:
+            updated = await email_service.update_status(
+                db, email_id, EmailStatus.FAILED,
+                error_message=error_msg,
+                increment_retry=True
+            )
+            delay_seconds = calculate_backoff_delay(
+                updated.retry_count,
+                settings.retry_delay_seconds,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to update status for email %s, using default backoff",
+                email_id,
+            )
+            delay_seconds = calculate_backoff_delay(1, settings.retry_delay_seconds)
+
+        try:
+            await queue_service.requeue_delayed(email_id, delay_seconds)
+        except Exception:
+            logger.exception("Failed to requeue email %s after error", email_id)
         
         return False
     finally:
