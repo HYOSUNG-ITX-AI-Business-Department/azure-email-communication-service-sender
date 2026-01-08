@@ -159,6 +159,58 @@ async def test_idempotency_key(db_session):
 
 
 @pytest.mark.asyncio
+async def test_idempotency_not_enforced_without_caller_id(db_session):
+    """Test idempotency is not enforced when caller_id is missing"""
+    email_service = EmailService()
+
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "idempotency_key": "key-without-caller"
+            }
+        )
+
+        email1 = await email_service.create_email(db_session, request)
+        email2 = await email_service.create_email(db_session, request)
+
+        assert email1.id != email2.id
+
+
+@pytest.mark.asyncio
+async def test_idempotency_not_enforced_without_idempotency_key(db_session):
+    """Test idempotency is not enforced when idempotency_key is missing"""
+    email_service = EmailService()
+
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "caller_id": "service-a"
+            }
+        )
+
+        email1 = await email_service.create_email(db_session, request)
+        email2 = await email_service.create_email(db_session, request)
+
+        assert email1.id != email2.id
+
+
+@pytest.mark.asyncio
 async def test_idempotency_key_payload_mismatch(db_session):
     """Test idempotency key reuse with different payload raises conflict"""
     email_service = EmailService()
