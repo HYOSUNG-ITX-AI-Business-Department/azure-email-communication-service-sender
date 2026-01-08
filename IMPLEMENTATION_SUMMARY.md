@@ -72,8 +72,8 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 ## Testing
 
-- ✅ Unit tests for core email service (5 tests, all passing)
-- ✅ Integration tests for API endpoints (all passing)
+- ✅ Unit tests for core email service (10 tests)
+- ⚠️ API endpoint integration tests not implemented yet
 - ✅ Code review completed and feedback addressed
 - ✅ Security scan (CodeQL) completed - no vulnerabilities found
 
@@ -83,11 +83,13 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 2. **HTML Email Support**: Properly constructs MIMEMultipart messages for HTML emails
 
-3. **Retry Strategy**: Immediate requeue for retries (production note: should use Valkey/Redis sorted sets for delayed retry)
+3. **Attachment Support**: End-to-end handling of attachments in the email pipeline
 
-4. **Error Handling**: Comprehensive error handling with appropriate HTTP status codes
+4. **Retry Strategy**: Immediate requeue for retries (production note: should use Valkey/Redis sorted sets for delayed retry)
 
-5. **Configuration**: All sensitive data and configurable parameters via environment variables
+5. **Error Handling**: Comprehensive error handling with appropriate HTTP status codes
+
+6. **Configuration**: All sensitive data and configurable parameters via environment variables
 
 ## Production Readiness
 
@@ -104,7 +106,6 @@ Client → REST API (FastAPI) → PostgreSQL Database
 - Add metrics/monitoring (Prometheus, Grafana)
 - Implement rate limiting
 - Add email templating system
-- Support for attachments
 - Enhance PostgreSQL production operations (automated migrations, backups, failover)
 - Multiple worker instances with distributed locking
 
