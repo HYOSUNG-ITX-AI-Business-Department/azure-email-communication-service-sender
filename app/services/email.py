@@ -173,7 +173,8 @@ class EmailService:
         db: AsyncSession,
         email_id: str,
         status: EmailStatus,
-        error_message: str = None,
+        error_message: str | None = None,
+        *,
         increment_retry: bool = False
     ) -> EmailRecord:
         """Update email status with audit trail"""
