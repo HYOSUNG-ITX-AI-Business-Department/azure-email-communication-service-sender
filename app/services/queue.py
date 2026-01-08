@@ -9,6 +9,25 @@ logger = logging.getLogger(__name__)
 
 class QueueService:
     """Service for managing email queue with Redis"""
+
+    MOVE_READY_DELAYED_SCRIPT = """
+    local delayed_key = KEYS[1]
+    local queue_key = KEYS[2]
+    local now = tonumber(ARGV[1])
+    local max_batch = tonumber(ARGV[2])
+
+    local email_ids = redis.call('ZRANGEBYSCORE', delayed_key, 0, now, 'LIMIT', 0, max_batch)
+    if #email_ids == 0 then
+        return 0
+    end
+
+    redis.call('ZREM', delayed_key, unpack(email_ids))
+    for _, email_id in ipairs(email_ids) do
+        redis.call('LPUSH', queue_key, email_id)
+    end
+
+    return #email_ids
+    """
     
     def __init__(self):
         self.redis_client = None
@@ -16,6 +35,7 @@ class QueueService:
         self.processing_key = "email:processing"
         self.dlq_key = "email:dlq"
         self.delayed_queue_key = "email:delayed"
+        self._move_ready_delayed_script = None
     
     async def connect(self):
         """Connect to Redis"""
@@ -23,6 +43,9 @@ class QueueService:
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True
+        )
+        self._move_ready_delayed_script = self.redis_client.register_script(
+            self.MOVE_READY_DELAYED_SCRIPT
         )
         logger.info("Connected to Redis")
     
@@ -81,23 +104,15 @@ class QueueService:
     async def move_ready_delayed(self, max_batch: int = 100) -> int:
         """Move ready delayed emails back to main queue"""
         now = time.time()
-        email_ids = await self.redis_client.zrangebyscore(
-            self.delayed_queue_key,
-            min=0,
-            max=now,
-            start=0,
-            num=max_batch,
+        moved = await self._move_ready_delayed_script(
+            keys=[self.delayed_queue_key, self.queue_key],
+            args=[now, max_batch],
         )
-        if not email_ids:
-            return 0
+        moved = int(moved or 0)
 
-        pipeline = self.redis_client.pipeline()
-        pipeline.zrem(self.delayed_queue_key, *email_ids)
-        pipeline.lpush(self.queue_key, *email_ids)
-        await pipeline.execute()
-
-        logger.info("Moved %d delayed emails back to queue", len(email_ids))
-        return len(email_ids)
+        if moved > 0:
+            logger.info("Moved %d delayed emails back to queue", moved)
+        return moved
     
     async def get_queue_size(self) -> int:
         """Get current queue size"""
