@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 import logging
-import redis
+from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.exc import OperationalError
 from aiosmtplib import SMTPException, SMTPResponseException
@@ -190,7 +190,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         return False
     finally:
         if not db_error:
-            with contextlib.suppress(redis.RedisError):
+            with contextlib.suppress(RedisError):
                 await queue_service.clear_db_error_count(email_id)
 
 
@@ -243,7 +243,7 @@ async def worker():
             except asyncio.CancelledError:
                 logger.info("Worker task cancelled")
                 break
-            except redis.exceptions.RedisError:
+            except RedisError:
                 logger.exception("Redis error in worker loop, reconnecting...")
                 await queue_service.disconnect()
                 await asyncio.sleep(5)
