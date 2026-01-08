@@ -226,7 +226,9 @@ async def test_update_status_with_audit_trail(db_session):
         assert updated.status == EmailStatus.QUEUED
         assert updated.audit_log is not None
 
-        audit_entries = json.loads(updated.audit_log)
+        audit_entries = updated.audit_log
+        if isinstance(audit_entries, str):
+            audit_entries = json.loads(audit_entries)
         assert len(audit_entries) >= 1
         latest_entry = audit_entries[-1]
         assert latest_entry["status"] == EmailStatus.QUEUED.value
@@ -275,6 +277,8 @@ async def test_update_status_handles_corrupted_audit_log(db_session):
             EmailStatus.QUEUED
         )
 
-        audit_entries = json.loads(updated.audit_log)
+        audit_entries = updated.audit_log
+        if isinstance(audit_entries, str):
+            audit_entries = json.loads(audit_entries)
         assert len(audit_entries) == 1
         assert audit_entries[0]["status"] == EmailStatus.QUEUED.value

@@ -23,12 +23,14 @@ class EmailService:
 
     def _parse_stored_addresses(
         self,
-        raw_addresses: str | None,
+        raw_addresses: list[str] | str | None,
         email_id: str,
         field_name: str,
     ) -> list[str] | None:
-        if not raw_addresses:
+        if raw_addresses is None:
             return []
+        if isinstance(raw_addresses, list):
+            return raw_addresses
         try:
             return json.loads(raw_addresses)
         except (json.JSONDecodeError, TypeError):
@@ -129,15 +131,15 @@ class EmailService:
             idempotency_key=email_request.idempotency_key,
             from_address=email_request.from_address,
             envelope_from=envelope_from,
-            to_addresses=json.dumps(email_request.to),
-            cc_addresses=json.dumps(email_request.cc) if email_request.cc else None,
-            bcc_addresses=json.dumps(email_request.bcc) if email_request.bcc else None,
+            to_addresses=email_request.to,
+            cc_addresses=email_request.cc,
+            bcc_addresses=email_request.bcc,
             subject=email_request.subject,
             body=email_request.body,
             is_html=1 if email_request.html else 0,
             status=EmailStatus.PENDING,
             retry_count=0,
-            audit_log=json.dumps(audit_log)
+            audit_log=audit_log
         )
         
         db.add(email_record)
@@ -195,20 +197,23 @@ class EmailService:
         # Update audit log
         audit_log = []
         if email.audit_log:
-            try:
-                audit_log = json.loads(email.audit_log)
-            except json.JSONDecodeError:
-                logger.error(
-                    "Corrupted audit_log for email %s, resetting to empty list",
-                    email_id,
-                )
+            if isinstance(email.audit_log, list):
+                audit_log = email.audit_log
+            else:
+                try:
+                    audit_log = json.loads(email.audit_log)
+                except (json.JSONDecodeError, TypeError):
+                    logger.error(
+                        "Corrupted audit_log for email %s, resetting to empty list",
+                        email_id,
+                    )
         audit_log.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": status.value,
             "message": error_message or f"Status updated to {status.value}",
             "retry_count": email.retry_count
         })
-        email.audit_log = json.dumps(audit_log)
+        email.audit_log = audit_log
         
         await db.commit()
         await db.refresh(email)

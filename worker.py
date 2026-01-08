@@ -76,9 +76,17 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
         # Parse addresses from JSON with error handling
         try:
-            to_addresses = json.loads(email.to_addresses)
-            cc_addresses = json.loads(email.cc_addresses) if email.cc_addresses else None
-            bcc_addresses = json.loads(email.bcc_addresses) if email.bcc_addresses else None
+            to_addresses = email.to_addresses
+            if isinstance(to_addresses, str):
+                to_addresses = json.loads(to_addresses)
+
+            cc_addresses = email.cc_addresses
+            if isinstance(cc_addresses, str):
+                cc_addresses = json.loads(cc_addresses)
+
+            bcc_addresses = email.bcc_addresses
+            if isinstance(bcc_addresses, str):
+                bcc_addresses = json.loads(bcc_addresses)
         except json.JSONDecodeError:
             error_message = f"Invalid JSON in email address fields for email {email_id}"
             logger.exception(error_message)
