@@ -69,6 +69,11 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,urllib.parse,socket; u=urllib.parse.urlparse(os.environ['REDIS_URL']); socket.create_connection((u.hostname, u.port or 6379), 2).close()\""]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     restart: unless-stopped
     deploy:
       replicas: 1
