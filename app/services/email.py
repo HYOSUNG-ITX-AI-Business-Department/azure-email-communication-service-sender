@@ -34,7 +34,7 @@ class EmailService:
         try:
             return json.loads(raw_addresses)
         except (json.JSONDecodeError, TypeError):
-            logger.error(
+            logger.exception(
                 "Invalid %s JSON for email %s while checking idempotency payload",
                 field_name,
                 email_id,
