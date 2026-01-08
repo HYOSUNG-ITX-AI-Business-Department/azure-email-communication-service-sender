@@ -156,6 +156,17 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         logger.exception("Database error processing email %s", email_id)
         # DB session may be in a bad state; requeue for retry with backoff
         db_error_count = await queue_service.increment_db_error_count(email_id)
+        if db_error_count >= settings.max_retries:
+            logger.error(
+                "Email %s exceeded max DB error retries (%s), moving to DLQ",
+                email_id,
+                settings.max_retries,
+            )
+            await queue_service.move_to_dlq(
+                email_id,
+                f"Exceeded max DB error retries: {error_msg}",
+            )
+            return False
         retry_step = min(db_error_count, settings.max_retries)
         delay_seconds = calculate_backoff_delay(
             retry_step,

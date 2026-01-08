@@ -124,3 +124,32 @@ async def test_process_email_operational_error_requeues(monkeypatch):
     queue_service.increment_db_error_count.assert_awaited_once_with("email-1")
     queue_service.requeue_delayed.assert_awaited_once_with("email-1", 20)
     assert queue_service.clear_db_error_count.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_process_email_operational_error_moves_to_dlq(monkeypatch):
+    op_error = OperationalError("select", {}, Exception("db"))
+    email_service = SimpleNamespace(
+        get_by_id=AsyncMock(side_effect=op_error),
+        update_status=AsyncMock(),
+    )
+    queue_service = SimpleNamespace(
+        complete=AsyncMock(),
+        move_to_dlq=AsyncMock(),
+        requeue_delayed=AsyncMock(),
+        increment_db_error_count=AsyncMock(return_value=3),
+        clear_db_error_count=AsyncMock(),
+    )
+    smtp_service = SimpleNamespace(send_email=AsyncMock())
+
+    monkeypatch.setattr(worker, "email_service", email_service)
+    monkeypatch.setattr(worker, "queue_service", queue_service)
+    monkeypatch.setattr(worker, "smtp_service", smtp_service)
+    monkeypatch.setattr(worker.settings, "max_retries", 3)
+    monkeypatch.setattr(worker.settings, "retry_delay_seconds", 10)
+
+    result = await worker.process_email(AsyncMock(), "email-1")
+
+    assert result is False
+    queue_service.move_to_dlq.assert_awaited_once()
+    queue_service.requeue_delayed.assert_not_awaited()
