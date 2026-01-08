@@ -62,6 +62,7 @@ class EmailService:
         return (
             existing.from_address == email_request.from_address
             and existing.envelope_from == envelope_from
+            and existing.smtp_auth_profile_id == email_request.smtp_auth_profile_id
             and stored_to == self._normalize_addresses(email_request.to)
             and stored_cc == self._normalize_addresses(email_request.cc)
             and stored_bcc == self._normalize_addresses(email_request.bcc)
@@ -131,6 +132,7 @@ class EmailService:
             idempotency_key=email_request.idempotency_key,
             from_address=email_request.from_address,
             envelope_from=envelope_from,
+            smtp_auth_profile_id=email_request.smtp_auth_profile_id,
             to_addresses=email_request.to,
             cc_addresses=email_request.cc,
             bcc_addresses=email_request.bcc,

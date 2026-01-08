@@ -20,6 +20,7 @@ class EmailRecord(Base):
     # Email addresses
     from_address = Column(String, nullable=False, index=True)
     envelope_from = Column(String, nullable=False, index=True)
+    smtp_auth_profile_id = Column(String, nullable=True, index=True)
     to_addresses = Column(JSON, nullable=False)  # List of recipients
     cc_addresses = Column(JSON, nullable=True)
     bcc_addresses = Column(JSON, nullable=True)

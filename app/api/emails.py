@@ -127,7 +127,8 @@ async def get_email_status(
             retry_count=email.retry_count,
             error_message=email.error_message,
             sent_at=email.sent_at,
-            caller_id=email.caller_id
+            caller_id=email.caller_id,
+            smtp_auth_profile_id=email.smtp_auth_profile_id,
         )
         
     except HTTPException:

@@ -25,6 +25,10 @@ class EmailRequest(BaseModel):
     html: Optional[bool] = Field(False, description="Whether body is HTML")
     idempotency_key: Optional[str] = Field(None, description="Idempotency key for duplicate prevention")
     caller_id: Optional[str] = Field(None, description="Caller identifier for multi-tenant isolation")
+    smtp_auth_profile_id: Optional[str] = Field(
+        None,
+        description="SMTP auth profile identifier for audit correlation",
+    )
     
     model_config = ConfigDict(populate_by_name=True)
 
@@ -51,6 +55,7 @@ class EmailStatusResponse(BaseModel):
     error_message: Optional[str] = None
     sent_at: Optional[datetime] = None
     caller_id: Optional[str] = None
+    smtp_auth_profile_id: Optional[str] = None
 
 
 class QueueStatsResponse(BaseModel):
