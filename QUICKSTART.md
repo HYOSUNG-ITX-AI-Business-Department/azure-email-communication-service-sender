@@ -2,6 +2,7 @@
 
 ## Prerequisites
 - Python 3.11+
+- PostgreSQL 12+ server
 - Valkey server (Redis-compatible)
 - Azure Communication Services Email resource with SMTP credentials
 
@@ -107,7 +108,7 @@ curl http://localhost:8000/api/v1/emails/
 - `SMTP_HOST` - SMTP server (default: smtp.azurecomm.net)
 - `SMTP_PORT` - SMTP port (default: 587)
 - `REDIS_URL` - Valkey/Redis connection URL (default: redis://localhost:6379/0)
-- `DATABASE_URL` - Database URL (default: sqlite+aiosqlite:///./emails.db)
+- `DATABASE_URL` - Database URL (default: postgresql+asyncpg://emailuser:emailpass@localhost:5432/emails)
 - `MAX_RETRIES` - Maximum retry attempts (default: 3)
 - `RETRY_DELAY_SECONDS` - Initial retry delay (default: 60)
 - `API_HOST` - API host (default: 0.0.0.0)
@@ -169,7 +170,7 @@ Response:
                                    │                            │
                                    v                            v
                              ┌──────────┐               ┌──────────┐
-                             │ SQLite   │               │   SMTP   │
+                             │PostgreSQL│               │   SMTP   │
                              │ Database │               │  Azure   │
                              └──────────┘               └──────────┘
 ```

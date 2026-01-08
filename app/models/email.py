@@ -28,7 +28,7 @@ class EmailRecord(Base):
     # Email content
     subject = Column(String, nullable=False)
     body = Column(Text, nullable=False)
-    is_html = Column(Integer, default=0)  # SQLite doesn't have boolean
+    is_html = Column(Integer, default=0)  # Using Integer for boolean compatibility
     
     # Status tracking
     status = Column(String, nullable=False, default="pending", index=True)

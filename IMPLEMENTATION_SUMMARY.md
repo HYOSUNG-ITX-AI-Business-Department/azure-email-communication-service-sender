@@ -20,7 +20,7 @@ Successfully implemented a complete Azure Email Communication Service Sender wit
 ### 3. REST API (Sender Service)
 - ✅ FastAPI-based REST API for email submissions
 - ✅ Request validation (addresses, required fields)
-- ✅ Email storage in SQLite database
+- ✅ Email storage in PostgreSQL database
 - ✅ Automatic queuing in Valkey (Redis-compatible)
 
 ### 4. Worker Service
@@ -50,7 +50,7 @@ Successfully implemented a complete Azure Email Communication Service Sender wit
 ## Architecture
 
 ```
-Client → REST API (FastAPI) → SQLite Database
+Client → REST API (FastAPI) → PostgreSQL Database
               ↓
          Valkey Queue
               ↓

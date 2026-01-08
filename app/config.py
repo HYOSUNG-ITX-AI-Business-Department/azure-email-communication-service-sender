@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     
     # Database Configuration
-    database_url: str = "sqlite+aiosqlite:///./emails.db"
+    database_url: str = "postgresql+asyncpg://user:password@localhost:5432/emails"
     
     # Retry Configuration
     max_retries: int = 3

@@ -35,7 +35,7 @@ The system consists of two main components:
                                   │                                                 └──────────────┘
                                   v
                             ┌─────────────┐
-                            │   SQLite    │
+                            │ PostgreSQL  │
                             │  Database   │
                             └─────────────┘
 ```
@@ -43,6 +43,7 @@ The system consists of two main components:
 ## Prerequisites
 
 - Python 3.11+
+- PostgreSQL 12+ (for production database)
 - Valkey (Redis-compatible message queue)
 - Azure Communication Services Email resource
 - Entra-based SMTP credentials
@@ -113,7 +114,7 @@ Configuration is done via environment variables (`.env` file):
 | `SMTP_PASSWORD` | SMTP password | (required) |
 | `ALLOWED_MAILFROM` | Comma-separated list of allowed sender addresses | (required) |
 | `REDIS_URL` | Valkey/Redis connection URL | `redis://localhost:6379/0` |
-| `DATABASE_URL` | Database connection URL | `sqlite+aiosqlite:///./emails.db` |
+| `DATABASE_URL` | Database connection URL | `postgresql+asyncpg://emailuser:emailpass@localhost:5432/emails` |
 | `MAX_RETRIES` | Maximum retry attempts | `3` |
 | `RETRY_DELAY_SECONDS` | Initial retry delay (exponential backoff) | `60` |
 | `API_HOST` | API server host | `0.0.0.0` |

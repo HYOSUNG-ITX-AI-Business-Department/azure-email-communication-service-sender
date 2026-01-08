@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: emailuser
+      POSTGRES_PASSWORD: emailpass
+      POSTGRES_DB: emails
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emailuser -d emails"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   valkey:
     image: valkey/valkey:7-alpine
     ports:
@@ -25,12 +41,12 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - ALLOWED_MAILFROM=${ALLOWED_MAILFROM}
       - REDIS_URL=redis://valkey:6379/0
-      - DATABASE_URL=sqlite+aiosqlite:///./emails.db
+      - DATABASE_URL=postgresql+asyncpg://emailuser:emailpass@postgres:5432/emails
       - MAX_RETRIES=${MAX_RETRIES:-3}
       - RETRY_DELAY_SECONDS=${RETRY_DELAY_SECONDS:-60}
-    volumes:
-      - ./emails.db:/app/emails.db
     depends_on:
+      postgres:
+        condition: service_healthy
       valkey:
         condition: service_healthy
     restart: unless-stopped
@@ -45,12 +61,12 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - ALLOWED_MAILFROM=${ALLOWED_MAILFROM}
       - REDIS_URL=redis://valkey:6379/0
-      - DATABASE_URL=sqlite+aiosqlite:///./emails.db
+      - DATABASE_URL=postgresql+asyncpg://emailuser:emailpass@postgres:5432/emails
       - MAX_RETRIES=${MAX_RETRIES:-3}
       - RETRY_DELAY_SECONDS=${RETRY_DELAY_SECONDS:-60}
-    volumes:
-      - ./emails.db:/app/emails.db
     depends_on:
+      postgres:
+        condition: service_healthy
       valkey:
         condition: service_healthy
     restart: unless-stopped
@@ -58,4 +74,5 @@ services:
       replicas: 1
 
 volumes:
+  postgres_data:
   valkey_data:
