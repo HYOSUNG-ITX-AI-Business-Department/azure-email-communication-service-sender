@@ -54,24 +54,24 @@ async def send_email(
             created_at=email_record.created_at
         )
         
-    except IdempotencyPayloadMismatchError as e:
+    except IdempotencyPayloadMismatchError as err:
         logger.exception("Idempotency payload mismatch")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
-        )
-    except ValueError as e:
+            detail=str(err)
+        ) from err
+    except ValueError as err:
         logger.exception("Validation error")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
+            detail=str(err)
+        ) from err
+    except Exception as err:
         logger.exception("Error submitting email")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit email"
-        )
+        ) from err
 
 
 @router.get("/{email_id}", response_model=EmailStatusResponse)
