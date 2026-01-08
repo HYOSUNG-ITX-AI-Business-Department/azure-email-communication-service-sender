@@ -10,6 +10,47 @@ logger = logging.getLogger(__name__)
 class QueueService:
     """Service for managing email queue with Redis"""
 
+    MOVE_TO_DLQ_SCRIPT = """
+    local processing_key = KEYS[1]
+    local dlq_key = KEYS[2]
+    local email_id = ARGV[1]
+    local dlq_item = ARGV[2]
+
+    local removed = redis.call('LREM', processing_key, 1, email_id)
+    if removed > 0 then
+        redis.call('LPUSH', dlq_key, dlq_item)
+        return 1
+    end
+    return 0
+    """
+
+    REQUEUE_SCRIPT = """
+    local processing_key = KEYS[1]
+    local queue_key = KEYS[2]
+    local email_id = ARGV[1]
+
+    local removed = redis.call('LREM', processing_key, 1, email_id)
+    if removed > 0 then
+        redis.call('LPUSH', queue_key, email_id)
+        return 1
+    end
+    return 0
+    """
+
+    REQUEUE_DELAYED_SCRIPT = """
+    local processing_key = KEYS[1]
+    local delayed_key = KEYS[2]
+    local email_id = ARGV[1]
+    local score = tonumber(ARGV[2])
+
+    local removed = redis.call('LREM', processing_key, 1, email_id)
+    if removed > 0 then
+        redis.call('ZADD', delayed_key, score, email_id)
+        return 1
+    end
+    return 0
+    """
+
     MOVE_READY_DELAYED_SCRIPT = """
     local delayed_key = KEYS[1]
     local queue_key = KEYS[2]
@@ -35,6 +76,9 @@ class QueueService:
         self.processing_key = "email:processing"
         self.dlq_key = "email:dlq"
         self.delayed_queue_key = "email:delayed"
+        self._move_to_dlq_script = None
+        self._requeue_script = None
+        self._requeue_delayed_script = None
         self._move_ready_delayed_script = None
     
     async def connect(self):
@@ -43,6 +87,15 @@ class QueueService:
             settings.redis_url,
             encoding="utf-8",
             decode_responses=True
+        )
+        self._move_to_dlq_script = self.redis_client.register_script(
+            self.MOVE_TO_DLQ_SCRIPT
+        )
+        self._requeue_script = self.redis_client.register_script(
+            self.REQUEUE_SCRIPT
+        )
+        self._requeue_delayed_script = self.redis_client.register_script(
+            self.REQUEUE_DELAYED_SCRIPT
         )
         self._move_ready_delayed_script = self.redis_client.register_script(
             self.MOVE_READY_DELAYED_SCRIPT
@@ -79,22 +132,49 @@ class QueueService:
     
     async def move_to_dlq(self, email_id: str, error: str):
         """Move failed email to Dead Letter Queue"""
-        await self.redis_client.lrem(self.processing_key, 1, email_id)
         dlq_item = json.dumps({"email_id": email_id, "error": error})
-        await self.redis_client.lpush(self.dlq_key, dlq_item)
-        logger.error(f"Moved email {email_id} to DLQ: {error}")
+        moved = await self._move_to_dlq_script(
+            keys=[self.processing_key, self.dlq_key],
+            args=[email_id, dlq_item],
+        )
+        moved = int(moved or 0)
+        if moved == 0:
+            logger.warning(
+                "Email %s not found in processing queue for DLQ move",
+                email_id,
+            )
+            return
+        logger.error("Moved email %s to DLQ: %s", email_id, error)
     
     async def requeue(self, email_id: str):
         """Move email back to queue for retry"""
-        await self.redis_client.lrem(self.processing_key, 1, email_id)
-        await self.redis_client.lpush(self.queue_key, email_id)
-        logger.info(f"Requeued email {email_id} for retry")
+        moved = await self._requeue_script(
+            keys=[self.processing_key, self.queue_key],
+            args=[email_id],
+        )
+        moved = int(moved or 0)
+        if moved == 0:
+            logger.warning(
+                "Email %s not found in processing queue for requeue",
+                email_id,
+            )
+            return
+        logger.info("Requeued email %s for retry", email_id)
 
     async def requeue_delayed(self, email_id: str, delay_seconds: int):
         """Move email to delayed retry queue"""
-        await self.redis_client.lrem(self.processing_key, 1, email_id)
         score = time.time() + delay_seconds
-        await self.redis_client.zadd(self.delayed_queue_key, {email_id: score})
+        moved = await self._requeue_delayed_script(
+            keys=[self.processing_key, self.delayed_queue_key],
+            args=[email_id, score],
+        )
+        moved = int(moved or 0)
+        if moved == 0:
+            logger.warning(
+                "Email %s not found in processing queue for delayed requeue",
+                email_id,
+            )
+            return
         logger.info(
             "Requeued email %s for retry in %s seconds",
             email_id,
