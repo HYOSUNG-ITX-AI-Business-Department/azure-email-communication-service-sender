@@ -36,10 +36,11 @@ class SMTPService:
             is_html: Whether body is HTML
         """
         # Create message
-        msg = MIMEMultipart() if is_html else MIMEText(body, 'plain', 'utf-8')
-        
         if is_html:
+            msg = MIMEMultipart('alternative')
             msg.attach(MIMEText(body, 'html', 'utf-8'))
+        else:
+            msg = MIMEText(body, 'plain', 'utf-8')
         
         # Set headers - use from_address for Header From (RFC 5322)
         msg['From'] = from_address

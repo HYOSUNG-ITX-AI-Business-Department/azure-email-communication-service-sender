@@ -1,11 +1,10 @@
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.models.email import Base
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def db_session():
     """Create test database session"""
     engine = create_async_engine(

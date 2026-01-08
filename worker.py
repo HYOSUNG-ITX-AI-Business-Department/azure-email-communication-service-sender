@@ -111,10 +111,12 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         email = await email_service.get_by_id(db, email_id)
         
         if email.retry_count < settings.max_retries:
-            # Requeue for retry with exponential backoff
+            # Requeue for retry - note: in production, use Redis ZADD with timestamp 
+            # for delayed retry instead of blocking with asyncio.sleep
             retry_delay = settings.retry_delay_seconds * (2 ** (email.retry_count - 1))
-            logger.info(f"Requeuing email {email_id} for retry in {retry_delay}s")
-            await asyncio.sleep(retry_delay)
+            logger.info(f"Will retry email {email_id} (delay: {retry_delay}s)")
+            # For now, we still requeue immediately. In production, implement
+            # a delayed queue using Redis sorted sets (ZADD) with score as retry timestamp
             await queue_service.requeue(email_id)
         else:
             # Move to DLQ
