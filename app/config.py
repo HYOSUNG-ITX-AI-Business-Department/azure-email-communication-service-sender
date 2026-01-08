@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
@@ -30,10 +30,11 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        env_file_encoding = 'utf-8'
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        env_file_encoding="utf-8",
+    )
     
     def get_allowed_mailfrom_list(self) -> list[str]:
         """Parse comma-separated allowed MailFrom addresses"""
