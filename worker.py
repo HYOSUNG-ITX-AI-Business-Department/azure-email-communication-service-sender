@@ -154,12 +154,9 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
     except OperationalError as exc:
         error_msg = str(exc)
         logger.exception("Database error processing email %s", email_id)
-        await email_service.update_status(
-            db, email_id, EmailStatus.FAILED,
-            error_message=error_msg,
-            increment_retry=False
-        )
-        await queue_service.complete(email_id)
+        # DB session may be in a bad state; requeue for retry without status update
+        delay_seconds = settings.retry_delay_seconds
+        await queue_service.requeue_delayed(email_id, delay_seconds)
         return False
     except Exception as e:
         error_msg = str(e)
