@@ -203,6 +203,10 @@ class EmailService:
             else:
                 try:
                     audit_log = json.loads(email.audit_log)
+                    if isinstance(audit_log, str):
+                        audit_log = json.loads(audit_log)
+                    if not isinstance(audit_log, list):
+                        audit_log = []
                 except (json.JSONDecodeError, TypeError):
                     logger.exception(
                         "Corrupted audit_log for email %s, resetting to empty list",
