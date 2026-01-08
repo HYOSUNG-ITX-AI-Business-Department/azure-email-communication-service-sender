@@ -1,7 +1,6 @@
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, UniqueConstraint, Index
 from sqlalchemy.sql import func
-from datetime import datetime
 import uuid
 
 

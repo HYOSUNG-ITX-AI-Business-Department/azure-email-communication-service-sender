@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     retry_delay_seconds: int = 60
     
     # API Configuration
-    api_host: str = "0.0.0.0"
+    # Note: Production deployments should explicitly set API_HOST=0.0.0.0 via environment variable
+    api_host: str = "127.0.0.1"
     api_port: int = 8000
     
     class Config:

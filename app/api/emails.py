@@ -55,13 +55,13 @@ async def send_email(
         )
         
     except ValueError as e:
-        logger.error(f"Validation error: {str(e)}")
+        logger.exception(f"Validation error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Error submitting email: {str(e)}")
+        logger.exception(f"Error submitting email: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to submit email"
@@ -91,9 +91,9 @@ async def get_email_status(
         try:
             parsed_to = json.loads(email.to_addresses)
         except (json.JSONDecodeError, TypeError) as parse_error:
-            logger.error(f"Error parsing to_addresses for email {email_id}: {str(parse_error)}")
-            # Fall back to a safe default - wrap raw value in a list if it looks like an email
-            parsed_to = [email.to_addresses] if email.to_addresses else []
+            logger.exception(f"Error parsing to_addresses for email {email_id}: {str(parse_error)}")
+            # Fall back to a safe default - use empty list
+            parsed_to = []
         
         return EmailStatusResponse(
             email_id=email.id,
@@ -113,7 +113,7 @@ async def get_email_status(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting email status: {str(e)}")
+        logger.exception(f"Error getting email status: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get email status"

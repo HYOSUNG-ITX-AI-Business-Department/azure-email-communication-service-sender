@@ -1,7 +1,7 @@
 import aiosmtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List, Optional
+from typing import Optional
 import logging
 from app.config import settings
 
@@ -15,9 +15,9 @@ class SMTPService:
         self,
         from_address: str,
         envelope_from: str,
-        to_addresses: List[str],
-        cc_addresses: Optional[List[str]],
-        bcc_addresses: Optional[List[str]],
+        to_addresses: list[str],
+        cc_addresses: Optional[list[str]],
+        bcc_addresses: Optional[list[str]],
         subject: str,
         body: str,
         is_html: bool = False

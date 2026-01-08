@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import patch
 from app.services.email import EmailService
 from app.schemas.email import EmailRequest, EmailStatus
-from app.config import Settings
 
 
 @pytest.mark.asyncio

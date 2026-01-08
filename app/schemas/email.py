@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from typing import Optional, Any
+from typing import Optional
 from datetime import datetime
 from enum import Enum
 
@@ -17,7 +17,7 @@ class EmailRequest(BaseModel):
     """Request model for sending an email"""
     from_address: EmailStr = Field(..., alias="from", description="Header From (RFC 5322.From)")
     envelope_from: Optional[EmailStr] = Field(None, description="Envelope Sender (RFC 5321.MailFrom)")
-    to: list[EmailStr] = Field(..., description="Recipient addresses")
+    to: list[EmailStr] = Field(..., min_length=1, description="Recipient addresses")
     cc: Optional[list[EmailStr]] = Field(None, description="CC addresses")
     bcc: Optional[list[EmailStr]] = Field(None, description="BCC addresses")
     subject: str = Field(..., description="Email subject")

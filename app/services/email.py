@@ -59,7 +59,7 @@ class EmailService:
         # Create audit log
         audit_log = [{
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "status": EmailStatus.PENDING,
+            "status": EmailStatus.PENDING.value,
             "message": "Email created"
         }]
         
@@ -137,8 +137,8 @@ class EmailService:
         audit_log = json.loads(email.audit_log) if email.audit_log else []
         audit_log.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "status": status,
-            "message": error_message or f"Status updated to {status}",
+            "status": status.value,
+            "message": error_message or f"Status updated to {status.value}",
             "retry_count": email.retry_count
         })
         email.audit_log = json.dumps(audit_log)
