@@ -203,7 +203,7 @@ class EmailService:
                 try:
                     audit_log = json.loads(email.audit_log)
                 except (json.JSONDecodeError, TypeError):
-                    logger.error(
+                    logger.exception(
                         "Corrupted audit_log for email %s, resetting to empty list",
                         email_id,
                     )
