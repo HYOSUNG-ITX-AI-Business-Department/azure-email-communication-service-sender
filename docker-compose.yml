@@ -4,15 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-emailuser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-emailpass}
-      POSTGRES_DB: ${POSTGRES_DB:-emails}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-emailuser} -d ${POSTGRES_DB:-emails}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -48,7 +48,7 @@ services:
       - ALLOWED_MAILFROM=${ALLOWED_MAILFROM}
       - ALLOWED_HEADERS=${ALLOWED_HEADERS:-}
       - REDIS_URL=redis://valkey:6379/0
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-emailuser}:${POSTGRES_PASSWORD:-emailpass}@postgres:5432/${POSTGRES_DB:-emails}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - MAX_RETRIES=${MAX_RETRIES:-3}
       - RETRY_DELAY_SECONDS=${RETRY_DELAY_SECONDS:-60}
       - API_HOST=${API_HOST:-0.0.0.0}
@@ -70,7 +70,7 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD}
       - ALLOWED_MAILFROM=${ALLOWED_MAILFROM}
       - REDIS_URL=redis://valkey:6379/0
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-emailuser}:${POSTGRES_PASSWORD:-emailpass}@postgres:5432/${POSTGRES_DB:-emails}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - MAX_RETRIES=${MAX_RETRIES:-3}
       - RETRY_DELAY_SECONDS=${RETRY_DELAY_SECONDS:-60}
     depends_on:
