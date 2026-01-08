@@ -81,7 +81,8 @@ async def test_create_email_with_mixed_case_envelope_from(db_session):
 
         email = await email_service.create_email(db_session, request)
 
-        assert email.envelope_from.lower() == "sender@yourdomain.com"
+        # Validation is case-insensitive, but stored value preserves request casing
+        assert email.envelope_from == request.envelope_from
 
 
 @pytest.mark.asyncio
