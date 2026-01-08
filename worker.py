@@ -77,7 +77,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         # Update status to sending
         await email_service.update_status(db, email_id, EmailStatus.SENDING)
         
-        # Parse addresses from JSON with error handling
+        # Parse addresses and metadata from JSON with error handling
         try:
             to_addresses = email.to_addresses
             if isinstance(to_addresses, str):
@@ -90,8 +90,16 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             bcc_addresses = email.bcc_addresses
             if isinstance(bcc_addresses, str):
                 bcc_addresses = json.loads(bcc_addresses)
+            
+            headers = email.headers
+            if isinstance(headers, str):
+                headers = json.loads(headers)
+
+            attachments = email.attachments
+            if isinstance(attachments, str):
+                attachments = json.loads(attachments)
         except json.JSONDecodeError:
-            error_message = f"Invalid JSON in email address fields for email {email_id}"
+            error_message = f"Invalid JSON in email metadata fields for email {email_id}"
             logger.exception(error_message)
             await email_service.update_status(
                 db,
@@ -111,6 +119,9 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                 to_addresses=to_addresses,
                 cc_addresses=cc_addresses,
                 bcc_addresses=bcc_addresses,
+                reply_to=email.reply_to,
+                headers=headers,
+                attachments=attachments,
                 subject=email.subject,
                 body=email.body,
                 is_html=bool(email.is_html)

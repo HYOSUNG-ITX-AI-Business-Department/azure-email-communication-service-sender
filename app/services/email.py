@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.email import EmailRecord
-from app.schemas.email import EmailRequest, EmailStatus
+from app.schemas.email import EmailRequest, EmailStatus, EmailAttachment
 from app.config import settings
 from datetime import datetime, timezone
 import uuid
@@ -59,13 +59,35 @@ class EmailService:
         if stored_to is None or stored_cc is None or stored_bcc is None:
             return False
 
+        stored_headers = self._parse_stored_json(
+            existing.headers, existing.id, "headers"
+        )
+        stored_tags = self._parse_stored_json(
+            existing.tags, existing.id, "tags"
+        )
+        stored_attachments = self._parse_stored_json(
+            existing.attachments, existing.id, "attachments"
+        )
+        if existing.headers is not None and stored_headers is None:
+            return False
+        if existing.tags is not None and stored_tags is None:
+            return False
+        if existing.attachments is not None and stored_attachments is None:
+            return False
+
+        request_attachments = self._normalize_attachments(email_request.attachments)
+
         return (
             existing.from_address == email_request.from_address
             and existing.envelope_from == envelope_from
             and existing.smtp_auth_profile_id == email_request.smtp_auth_profile_id
+            and existing.reply_to == email_request.reply_to
             and stored_to == self._normalize_addresses(email_request.to)
             and stored_cc == self._normalize_addresses(email_request.cc)
             and stored_bcc == self._normalize_addresses(email_request.bcc)
+            and stored_headers == email_request.headers
+            and stored_tags == email_request.tags
+            and stored_attachments == request_attachments
             and existing.subject == email_request.subject
             and existing.body == email_request.body
             and bool(existing.is_html) == bool(email_request.html)
@@ -76,6 +98,34 @@ class EmailService:
         allowed = settings.get_allowed_mailfrom_list()
         allowed_normalized = {address.lower() for address in allowed}
         return envelope_from.lower() in allowed_normalized
+
+    def _parse_stored_json(
+        self,
+        raw_value: dict | list | str | None,
+        email_id: str,
+        field_name: str,
+    ) -> dict | list | None:
+        if raw_value is None:
+            return None
+        if isinstance(raw_value, (dict, list)):
+            return raw_value
+        try:
+            return json.loads(raw_value)
+        except (json.JSONDecodeError, TypeError):
+            logger.exception(
+                "Invalid %s JSON for email %s while checking idempotency payload",
+                field_name,
+                email_id,
+            )
+            return None
+
+    def _normalize_attachments(
+        self,
+        attachments: list[EmailAttachment] | None,
+    ) -> list[dict] | None:
+        if attachments is None:
+            return None
+        return [attachment.model_dump() for attachment in attachments]
     
     async def create_email(
         self,
@@ -124,6 +174,25 @@ class EmailService:
             "message": "Email created"
         }]
         
+        headers = email_request.headers
+        if headers:
+            allowed_headers = {
+                header.lower()
+                for header in settings.get_allowed_headers_list()
+            }
+            invalid_headers = [
+                header
+                for header in headers
+                if header.lower() not in allowed_headers
+            ]
+            if invalid_headers:
+                raise ValueError(
+                    "Headers not allowed: "
+                    + ", ".join(sorted(invalid_headers))
+                )
+
+        attachments_payload = self._normalize_attachments(email_request.attachments)
+
         # Create email record
         email_record = EmailRecord(
             id=str(uuid.uuid4()),
@@ -132,12 +201,16 @@ class EmailService:
             from_address=email_request.from_address,
             envelope_from=envelope_from,
             smtp_auth_profile_id=email_request.smtp_auth_profile_id,
+            reply_to=email_request.reply_to,
             to_addresses=email_request.to,
             cc_addresses=email_request.cc,
             bcc_addresses=email_request.bcc,
+            headers=headers,
+            tags=email_request.tags,
             subject=email_request.subject,
             body=email_request.body,
             is_html=1 if email_request.html else 0,
+            attachments=attachments_payload,
             status=EmailStatus.PENDING,
             retry_count=0,
             audit_log=audit_log

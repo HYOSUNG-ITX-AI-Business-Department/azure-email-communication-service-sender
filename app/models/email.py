@@ -20,14 +20,18 @@ class EmailRecord(Base):
     from_address = Column(String, nullable=False, index=True)
     envelope_from = Column(String, nullable=False, index=True)
     smtp_auth_profile_id = Column(String, nullable=True, index=True)
+    reply_to = Column(String, nullable=True)
     to_addresses = Column(JSON, nullable=False)  # List of recipients
     cc_addresses = Column(JSON, nullable=True)
     bcc_addresses = Column(JSON, nullable=True)
+    headers = Column(JSON, nullable=True)
+    tags = Column(JSON, nullable=True)
     
     # Email content
     subject = Column(String, nullable=False)
     body = Column(Text, nullable=False)
     is_html = Column(Integer, default=0)  # Using Integer for boolean compatibility
+    attachments = Column(JSON, nullable=True)
     
     # Status tracking
     status = Column(String, nullable=False, default="pending", index=True)

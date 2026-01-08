@@ -36,6 +36,10 @@ async def send_email(
     - **subject**: Email subject
     - **body**: Email body content
     - **html**: Whether body is HTML (default: false)
+    - **reply_to**: Optional Reply-To address
+    - **attachments**: Optional attachments list
+    - **headers**: Optional custom headers (allowlist enforced)
+    - **tags**: Optional tags for tracking
     - **caller_id**: Caller identifier for multi-tenant isolation
     - **idempotency_key**: Optional key to prevent duplicate submissions
     """

@@ -122,6 +122,7 @@ Configuration is done via environment variables (`.env` file):
 | `SMTP_USERNAME` | Entra-based SMTP username | (required) |
 | `SMTP_PASSWORD` | SMTP password | (required) |
 | `ALLOWED_MAILFROM` | Comma-separated list of allowed sender addresses | (required) |
+| `ALLOWED_HEADERS` | Comma-separated list of allowed custom headers | (optional) |
 | `REDIS_URL` | Valkey/Redis connection URL | `redis://localhost:6379/0` |
 | `DATABASE_URL` | Database connection URL | `postgresql+asyncpg://emailuser:emailpass@localhost:5432/emails` |
 | `MAX_RETRIES` | Maximum retry attempts | `3` |
@@ -161,6 +162,10 @@ Configuration is done via environment variables (`.env` file):
 - `subject` (required): Email subject
 - `body` (required): Email body content
 - `html` (optional): Whether body is HTML (default: false)
+- `reply_to` (optional): Reply-To address
+- `attachments` (optional): Email attachments
+- `headers` (optional): Custom headers (allowlist enforced)
+- `tags` (optional): Tags for tracking
 - `caller_id` (required): Caller identifier for multi-tenant isolation
 - `idempotency_key` (optional): Unique key to prevent duplicate submissions
 

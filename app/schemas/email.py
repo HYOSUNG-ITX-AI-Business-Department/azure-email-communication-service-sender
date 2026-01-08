@@ -13,6 +13,20 @@ class EmailStatus(str, Enum):
     DLQ = "dlq"
 
 
+class EmailAttachment(BaseModel):
+    """Attachment model for email requests"""
+    filename: str = Field(..., min_length=1, description="Attachment filename")
+    content_type: str = Field(
+        "application/octet-stream",
+        description="Attachment MIME type",
+    )
+    content_base64: str = Field(
+        ...,
+        min_length=1,
+        description="Base64-encoded attachment content",
+    )
+
+
 class EmailRequest(BaseModel):
     """Request model for sending an email"""
     from_address: EmailStr = Field(..., alias="from", description="Header From (RFC 5322.From)")
@@ -23,6 +37,16 @@ class EmailRequest(BaseModel):
     subject: str = Field(..., description="Email subject")
     body: str = Field(..., description="Email body (plain text or HTML)")
     html: Optional[bool] = Field(False, description="Whether body is HTML")
+    reply_to: Optional[EmailStr] = Field(None, description="Reply-To address")
+    attachments: Optional[list[EmailAttachment]] = Field(
+        None,
+        description="Email attachments",
+    )
+    headers: Optional[dict[str, str]] = Field(
+        None,
+        description="Custom headers (allowlist enforced)",
+    )
+    tags: Optional[list[str]] = Field(None, description="Tags for tracking")
     idempotency_key: Optional[str] = Field(None, description="Idempotency key for duplicate prevention")
     caller_id: str = Field(..., description="Caller identifier for multi-tenant isolation")
     smtp_auth_profile_id: Optional[str] = Field(

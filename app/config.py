@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     
     # Allowed MailFrom addresses
     allowed_mailfrom: str = ""
+
+    # Allowed custom headers (comma-separated)
+    allowed_headers: str = ""
     
     # Redis Configuration
     redis_url: str = "redis://localhost:6379/0"
@@ -45,6 +48,21 @@ class Settings(BaseSettings):
             raise ValueError("ALLOWED_MAILFROM must contain at least one valid email address")
         
         return addresses
+
+    def get_allowed_headers_list(self) -> list[str]:
+        """Parse comma-separated allowed custom headers"""
+        if not self.allowed_headers or not self.allowed_headers.strip():
+            raise ValueError(
+                "ALLOWED_HEADERS configuration is required when headers are provided"
+            )
+
+        headers = [header.strip() for header in self.allowed_headers.split(",")]
+        headers = [header for header in headers if header]
+
+        if not headers:
+            raise ValueError("ALLOWED_HEADERS must contain at least one header name")
+
+        return headers
 
 
 @lru_cache

@@ -1,5 +1,9 @@
 import aiosmtplib
+import base64
+import binascii
 import re
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from html import unescape
@@ -20,6 +24,9 @@ class SMTPService:
         to_addresses: list[str],
         cc_addresses: Optional[list[str]],
         bcc_addresses: Optional[list[str]],
+        reply_to: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        attachments: Optional[list[dict[str, str]]] = None,
         subject: str,
         body: str,
         is_html: bool = False
@@ -33,19 +40,56 @@ class SMTPService:
             to_addresses: List of recipients
             cc_addresses: List of CC recipients
             bcc_addresses: List of BCC recipients
+            reply_to: Reply-To address
+            headers: Custom headers (allowlist enforced)
+            attachments: List of attachment metadata dicts
             subject: Email subject
             body: Email body
             is_html: Whether body is HTML
         """
-        # Create message
+        # Create message body
         if is_html:
-            msg = MIMEMultipart('alternative')
+            alternative = MIMEMultipart('alternative')
             # Plain-text fallback for clients that do not render HTML.
             plain_text = unescape(re.sub(r"<[^>]+>", "", body))
-            msg.attach(MIMEText(plain_text, 'plain', 'utf-8'))
-            msg.attach(MIMEText(body, 'html', 'utf-8'))
+            alternative.attach(MIMEText(plain_text, 'plain', 'utf-8'))
+            alternative.attach(MIMEText(body, 'html', 'utf-8'))
+            body_part = alternative
         else:
-            msg = MIMEText(body, 'plain', 'utf-8')
+            body_part = MIMEText(body, 'plain', 'utf-8')
+
+        # Attach files when present
+        if attachments:
+            msg = MIMEMultipart('mixed')
+            msg.attach(body_part)
+            for attachment in attachments:
+                filename = attachment.get("filename")
+                content_base64 = attachment.get("content_base64")
+                content_type = attachment.get("content_type") or "application/octet-stream"
+
+                if not filename or not content_base64:
+                    raise ValueError("Attachment requires filename and content_base64")
+
+                try:
+                    payload = base64.b64decode(content_base64, validate=True)
+                except (ValueError, binascii.Error) as exc:
+                    raise ValueError("Attachment content_base64 is invalid") from exc
+
+                main_type, _, sub_type = content_type.partition("/")
+                if not main_type or not sub_type:
+                    main_type, sub_type = "application", "octet-stream"
+
+                part = MIMEBase(main_type, sub_type)
+                part.set_payload(payload)
+                encoders.encode_base64(part)
+                part.add_header(
+                    "Content-Disposition",
+                    "attachment",
+                    filename=filename,
+                )
+                msg.attach(part)
+        else:
+            msg = body_part
         
         # Set headers - use from_address for Header From (RFC 5322)
         msg['From'] = from_address
@@ -54,6 +98,11 @@ class SMTPService:
         
         if cc_addresses:
             msg['Cc'] = ', '.join(cc_addresses)
+        if reply_to:
+            msg['Reply-To'] = reply_to
+        if headers:
+            for header_name, header_value in headers.items():
+                msg[header_name] = header_value
         
         # Prepare all recipients (including BCC, but don't add to headers)
         all_recipients = to_addresses.copy()
