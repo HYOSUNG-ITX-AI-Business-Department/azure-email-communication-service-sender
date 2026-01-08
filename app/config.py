@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     
     # Database Configuration
-    database_url: str = "postgresql+asyncpg://emailuser:CHANGE_ME@localhost:5432/emails"
+    database_url: str = "postgresql+asyncpg://emailuser@localhost:5432/emails"
     
     # Retry Configuration
     max_retries: int = 3
