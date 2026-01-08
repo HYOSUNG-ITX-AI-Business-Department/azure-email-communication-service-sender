@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/emails", tags=["emails"])
 
 
-@router.post("/", response_model=EmailResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=EmailResponse, status_code=status.HTTP_202_ACCEPTED)
 async def send_email(
     email_request: EmailRequest,
     db: AsyncSession = Depends(get_db)

@@ -169,7 +169,7 @@ Configuration is done via environment variables (`.env` file):
 - `caller_id` (required): Caller identifier for multi-tenant isolation
 - `idempotency_key` (optional): Unique key to prevent duplicate submissions
 
-**Response** (201 Created):
+**Response** (202 Accepted):
 
 ```json
 {
