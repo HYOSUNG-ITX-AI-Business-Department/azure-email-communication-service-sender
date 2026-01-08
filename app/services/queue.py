@@ -109,22 +109,42 @@ class QueueService:
             logger.info("Disconnected from Redis")
     
     async def enqueue(self, email_id: str):
-        """Add email to the queue"""
-        await self.redis_client.lpush(self.queue_key, email_id)
-        logger.info(f"Enqueued email {email_id}")
+        """Add email to the queue.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            await self.redis_client.lpush(self.queue_key, email_id)
+            logger.info("Enqueued email %s", email_id)
+        except redis.RedisError:
+            logger.exception("Failed to enqueue email %s", email_id)
+            raise
     
     async def dequeue(self) -> str:
-        """Get next email from queue (blocking)"""
+        """Get next email from queue (blocking).
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
         # Use BLMOVE for atomicity - move from queue to processing
-        result = await self.redis_client.blmove(
-            self.queue_key,
-            self.processing_key,
-            timeout=5,
-            src="RIGHT",
-            dest="LEFT",
-        )
+        try:
+            result = await self.redis_client.blmove(
+                self.queue_key,
+                self.processing_key,
+                timeout=5,
+                src="RIGHT",
+                dest="LEFT",
+            )
+        except redis.RedisError:
+            logger.exception(
+                "Failed to dequeue email from %s to %s",
+                self.queue_key,
+                self.processing_key,
+            )
+            raise
         if result:
-            logger.info(f"Dequeued email {result}")
+            logger.info("Dequeued email %s", result)
         return result
     
     async def complete(self, email_id: str):
