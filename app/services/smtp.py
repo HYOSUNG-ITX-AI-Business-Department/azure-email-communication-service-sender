@@ -7,7 +7,6 @@ from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from html import unescape
-from typing import Optional
 import logging
 from app.config import settings
 
@@ -25,11 +24,11 @@ class SMTPService:
         subject: str,
         body: str,
         *,
-        cc_addresses: Optional[list[str]] = None,
-        bcc_addresses: Optional[list[str]] = None,
-        reply_to: Optional[str] = None,
-        headers: Optional[dict[str, str]] = None,
-        attachments: Optional[list[dict[str, str]]] = None,
+        cc_addresses: list[str] | None = None,
+        bcc_addresses: list[str] | None = None,
+        reply_to: str | None = None,
+        headers: dict[str, str] | None = None,
+        attachments: list[dict[str, str]] | None = None,
         is_html: bool = False,
     ) -> None:
         """
