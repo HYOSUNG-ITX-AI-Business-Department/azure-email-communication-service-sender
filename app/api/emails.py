@@ -137,12 +137,12 @@ async def get_email_status(
         
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception as err:
         logger.exception("Error getting email status")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get email status"
-        )
+        ) from err
 
 
 @router.get("/", response_model=QueueStatsResponse)
