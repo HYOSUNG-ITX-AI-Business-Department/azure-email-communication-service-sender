@@ -1,6 +1,7 @@
 # Quick Start Guide
 
 ## Prerequisites
+
 - Python 3.11+
 - PostgreSQL 12+ server
 - Valkey server (Redis-compatible)
@@ -9,17 +10,20 @@
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/seonghobae/azure-email-communication-service-sender.git
 cd azure-email-communication-service-sender
 ```
 
-2. Install dependencies:
+1. Install dependencies:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Configure environment:
+1. Configure environment:
+
 ```bash
 cp .env.example .env
 # Edit .env with your Azure ACS SMTP credentials and allowed sender addresses
@@ -41,25 +45,29 @@ docker-compose down
 ## Running Locally
 
 Terminal 1 - Start Valkey:
+
 ```bash
 docker run -d -p 6379:6379 valkey/valkey:7-alpine
 ```
 
 Terminal 2 - Start API Server:
+
 ```bash
 python -m app.main
 ```
 
 Terminal 3 - Start Worker:
+
 ```bash
 python worker.py
 ```
 
-Access API documentation at: http://localhost:8000/docs
+Access API documentation at: <http://localhost:8000/docs>
 
 ## Usage Examples
 
 ### Send Email (Default Envelope)
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/emails/ \
   -H "Content-Type: application/json" \
@@ -72,6 +80,7 @@ curl -X POST http://localhost:8000/api/v1/emails/ \
 ```
 
 ### Send Email (Separate Envelope)
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/emails/ \
   -H "Content-Type: application/json" \
@@ -88,11 +97,13 @@ curl -X POST http://localhost:8000/api/v1/emails/ \
 ```
 
 ### Check Email Status
+
 ```bash
 curl http://localhost:8000/api/v1/emails/{email_id}
 ```
 
 ### Get Queue Statistics
+
 ```bash
 curl http://localhost:8000/api/v1/emails/
 ```
@@ -100,11 +111,13 @@ curl http://localhost:8000/api/v1/emails/
 ## Environment Variables
 
 ### Required
+
 - `SMTP_USERNAME` - Your Azure ACS SMTP username (Entra-based)
 - `SMTP_PASSWORD` - Your Azure ACS SMTP password
 - `ALLOWED_MAILFROM` - Comma-separated list of verified sender addresses
 
 ### Optional
+
 - `SMTP_HOST` - SMTP server (default: smtp.azurecomm.net)
 - `SMTP_PORT` - SMTP port (default: 587)
 - `REDIS_URL` - Valkey/Redis connection URL (default: redis://localhost:6379/0)
@@ -117,6 +130,7 @@ curl http://localhost:8000/api/v1/emails/
 ## Testing
 
 Run unit tests:
+
 ```bash
 export SMTP_USERNAME="test@example.com"
 export SMTP_PASSWORD="testpassword"
@@ -127,16 +141,19 @@ python -m pytest tests/ -v
 ## Monitoring
 
 ### Health Check
+
 ```bash
 curl http://localhost:8000/health
 ```
 
 ### Queue Statistics
+
 ```bash
 curl http://localhost:8000/api/v1/emails/
 ```
 
 Response:
+
 ```json
 {
   "queue_size": 10,
@@ -148,15 +165,18 @@ Response:
 ## Troubleshooting
 
 ### Email stuck in "queued" status
+
 - Check that the worker service is running
 - Check worker logs for SMTP connection errors
 - Verify SMTP credentials are correct
 
 ### "envelope_from not in allowed list" error
+
 - Add the sender address to `ALLOWED_MAILFROM` environment variable
 - Verify the address is verified in Azure Communication Services
 
 ### Connection refused to Valkey/Redis
+
 - Ensure Valkey is running on the configured host/port
 - Check `REDIS_URL` environment variable
 
@@ -178,6 +198,7 @@ Response:
 ## API Response Examples
 
 ### Success Response
+
 ```json
 {
   "email_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -188,6 +209,7 @@ Response:
 ```
 
 ### Status Check Response
+
 ```json
 {
   "email_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -205,6 +227,7 @@ Response:
 ```
 
 ### Error Response
+
 ```json
 {
   "detail": "envelope_from 'notallowed@domain.com' is not in allowed MailFrom list"
