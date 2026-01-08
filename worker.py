@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import logging
 import json
+import redis
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from aiosmtplib import SMTPException, SMTPResponseException
 from app.config import settings
@@ -209,6 +210,11 @@ async def worker():
             except asyncio.CancelledError:
                 logger.info("Worker task cancelled")
                 break
+            except redis.exceptions.RedisError:
+                logger.exception("Redis error in worker loop, reconnecting...")
+                await queue_service.disconnect()
+                await asyncio.sleep(5)
+                await queue_service.connect()
             except Exception:
                 logger.exception("Error in worker loop")
                 await asyncio.sleep(5)  # Wait before retrying
