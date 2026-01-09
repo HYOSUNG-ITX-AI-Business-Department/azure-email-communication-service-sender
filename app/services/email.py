@@ -164,7 +164,11 @@ class EmailService:
                     raise IdempotencyPayloadMismatchError(
                         "Idempotency key reuse with different payload"
                     )
-                logger.info(f"Duplicate request with idempotency key: {email_request.idempotency_key} for caller: {email_request.caller_id}")
+                logger.info(
+                    "Duplicate request with idempotency key: %s for caller: %s",
+                    email_request.idempotency_key,
+                    email_request.caller_id,
+                )
                 return existing
         
         # Create audit log
@@ -220,7 +224,11 @@ class EmailService:
         await db.commit()
         await db.refresh(email_record)
         
-        logger.info(f"Created email record {email_record.id} for caller {email_request.caller_id}")
+        logger.info(
+            "Created email record %s for caller %s",
+            email_record.id,
+            email_request.caller_id,
+        )
         return email_record
     
     async def get_by_id(self, db: AsyncSession, email_id: str) -> EmailRecord:
@@ -297,7 +305,7 @@ class EmailService:
         await db.commit()
         await db.refresh(email)
         
-        logger.info(f"Updated email {email_id} status to {status}")
+        logger.info("Updated email %s status to %s", email_id, status.value)
         return email
 
 
