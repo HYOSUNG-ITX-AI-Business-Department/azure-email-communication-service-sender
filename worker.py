@@ -152,6 +152,10 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
     except OperationalError as exc:
         db_error = True
+        try:
+            await db.rollback()
+        except Exception:
+            logger.exception("Failed to rollback DB session after operational error")
         error_msg = str(exc)
         logger.exception("Database error processing email %s", email_id)
         # DB session may be in a bad state; requeue for retry with backoff
@@ -183,7 +187,11 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
     except Exception as e:
         error_msg = str(e)
         logger.exception("Error processing email %s", email_id)
-        
+        try:
+            await db.rollback()
+        except Exception:
+            logger.exception("Failed to rollback DB session after error")
+
         try:
             updated = await email_service.update_status(
                 db, email_id, EmailStatus.FAILED,
