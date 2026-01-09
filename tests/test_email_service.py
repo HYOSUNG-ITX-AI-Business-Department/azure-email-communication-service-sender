@@ -336,3 +336,528 @@ async def test_update_status_handles_corrupted_audit_log(db_session):
             audit_entries = json.loads(audit_entries)
         assert len(audit_entries) == 1
         assert audit_entries[0]["status"] == EmailStatus.QUEUED.value
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_attachments(db_session):
+    """Test email creation with attachments"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test with Attachments",
+                "body": "Test body",
+                "caller_id": "service-a",
+                "attachments": [
+                    {
+                        "filename": "test.pdf",
+                        "content_type": "application/pdf",
+                        "content_base64": "dGVzdCBjb250ZW50"
+                    },
+                    {
+                        "filename": "image.png",
+                        "content_type": "image/png",
+                        "content_base64": "aW1hZ2UgZGF0YQ=="
+                    }
+                ]
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        
+        assert email.attachments is not None
+        assert len(email.attachments) == 2
+        assert email.attachments[0]["filename"] == "test.pdf"
+        assert email.attachments[1]["filename"] == "image.png"
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_custom_headers(db_session):
+    """Test email creation with custom headers"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        mock_settings.get_allowed_headers_list.return_value = [
+            "X-Custom-Header",
+            "X-Priority"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "headers": {"X-Custom-Header": "value", "X-Priority": "high"},
+                "caller_id": "service-a"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        
+        assert email.headers == {"X-Custom-Header": "value", "X-Priority": "high"}
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_disallowed_headers(db_session):
+    """Test email creation fails with disallowed headers"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        mock_settings.get_allowed_headers_list.return_value = [
+            "X-Allowed-Header"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "headers": {"X-Disallowed": "value"},
+                "caller_id": "service-a"
+            }
+        )
+        
+        with pytest.raises(ValueError, match="Headers not allowed"):
+            await email_service.create_email(db_session, request)
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_case_insensitive_header_validation(db_session):
+    """Test header validation is case-insensitive"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        mock_settings.get_allowed_headers_list.return_value = [
+            "X-Custom-Header"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "headers": {"x-CUSTOM-header": "value"},
+                "caller_id": "service-a"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        assert email.headers is not None
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_multiple_disallowed_headers(db_session):
+    """Test error message includes all disallowed headers"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        mock_settings.get_allowed_headers_list.return_value = [
+            "X-Allowed"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "headers": {
+                    "X-Disallowed-1": "value1",
+                    "X-Disallowed-2": "value2",
+                    "X-Allowed": "value3"
+                },
+                "caller_id": "service-a"
+            }
+        )
+        
+        with pytest.raises(ValueError) as exc_info:
+            await email_service.create_email(db_session, request)
+        
+        error_msg = str(exc_info.value)
+        assert "X-Disallowed-1" in error_msg
+        assert "X-Disallowed-2" in error_msg
+
+
+@pytest.mark.asyncio
+async def test_create_email_with_tags(db_session):
+    """Test email creation with tags"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "tags": ["marketing", "newsletter", "monthly"],
+                "caller_id": "service-a"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        
+        assert email.tags == ["marketing", "newsletter", "monthly"]
+
+
+@pytest.mark.asyncio
+async def test_idempotency_payload_match_with_all_fields(db_session):
+    """Test idempotency validates all fields including optional ones"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com", "bounce@yourdomain.com"
+        ]
+        mock_settings.get_allowed_headers_list.return_value = [
+            "X-Custom"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "envelope_from": "bounce@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "cc": ["cc@example.com"],
+                "bcc": ["bcc@example.com"],
+                "reply_to": "reply@yourdomain.com",
+                "subject": "Test",
+                "body": "Test body",
+                "html": True,
+                "headers": {"X-Custom": "value"},
+                "tags": ["tag1"],
+                "attachments": [{
+                    "filename": "test.pdf",
+                    "content_type": "application/pdf",
+                    "content_base64": "dGVzdA=="
+                }],
+                "smtp_auth_profile_id": "profile-1",
+                "idempotency_key": "unique-key-456",
+                "caller_id": "service-a"
+            }
+        )
+        
+        # First submission
+        email1 = await email_service.create_email(db_session, request)
+        
+        # Second submission with identical payload
+        email2 = await email_service.create_email(db_session, request)
+        
+        # Should return the same email
+        assert email1.id == email2.id
+
+
+@pytest.mark.asyncio
+async def test_idempotency_payload_mismatch_cc_addresses(db_session):
+    """Test idempotency detects CC address changes"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request1 = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "cc": ["cc1@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "idempotency_key": "key-789",
+                "caller_id": "service-a"
+            }
+        )
+        
+        await email_service.create_email(db_session, request1)
+        
+        request2 = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "cc": ["cc2@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "idempotency_key": "key-789",
+                "caller_id": "service-a"
+            }
+        )
+        
+        with pytest.raises(IdempotencyPayloadMismatchError):
+            await email_service.create_email(db_session, request2)
+
+
+@pytest.mark.asyncio
+async def test_idempotency_payload_mismatch_html_flag(db_session):
+    """Test idempotency detects html flag changes"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request1 = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "html": False,
+                "idempotency_key": "key-html",
+                "caller_id": "service-a"
+            }
+        )
+        
+        await email_service.create_email(db_session, request1)
+        
+        request2 = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "html": True,
+                "idempotency_key": "key-html",
+                "caller_id": "service-a"
+            }
+        )
+        
+        with pytest.raises(IdempotencyPayloadMismatchError):
+            await email_service.create_email(db_session, request2)
+
+
+@pytest.mark.asyncio
+async def test_update_status_increment_retry(db_session):
+    """Test status update increments retry count"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "caller_id": "service-a"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        assert email.retry_count == 0
+        
+        # Update with retry increment
+        updated = await email_service.update_status(
+            db_session,
+            email.id,
+            EmailStatus.FAILED,
+            error_message="SMTP error",
+            increment_retry=True
+        )
+        
+        assert updated.retry_count == 1
+        assert updated.error_message == "SMTP error"
+
+
+@pytest.mark.asyncio
+async def test_update_status_sets_sent_at(db_session):
+    """Test status update sets sent_at for SENT status"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "caller_id": "service-a"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        assert email.sent_at is None
+        
+        updated = await email_service.update_status(
+            db_session,
+            email.id,
+            EmailStatus.SENT
+        )
+        
+        assert updated.sent_at is not None
+
+
+@pytest.mark.asyncio
+async def test_update_status_nonexistent_email(db_session):
+    """Test status update for nonexistent email raises error"""
+    email_service = EmailService()
+    
+    with pytest.raises(ValueError, match="not found"):
+        await email_service.update_status(
+            db_session,
+            "nonexistent-id",
+            EmailStatus.SENT
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_returns_none_for_nonexistent(db_session):
+    """Test get_by_id returns None for nonexistent email"""
+    email_service = EmailService()
+    
+    result = await email_service.get_by_id(db_session, "nonexistent-id")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_by_idempotency_key_returns_none_for_nonexistent(db_session):
+    """Test get_by_idempotency_key returns None for nonexistent key"""
+    email_service = EmailService()
+    
+    result = await email_service.get_by_idempotency_key(
+        db_session, "caller", "nonexistent-key"
+    )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_parse_stored_addresses_with_list(db_session):
+    """Test _parse_stored_addresses handles list input"""
+    email_service = EmailService()
+    
+    result = email_service._parse_stored_addresses(
+        ["addr1@example.com", "addr2@example.com"],
+        "email-id",
+        "to_addresses"
+    )
+    assert result == ["addr1@example.com", "addr2@example.com"]
+
+
+@pytest.mark.asyncio
+async def test_parse_stored_addresses_with_json_string(db_session):
+    """Test _parse_stored_addresses handles JSON string input"""
+    email_service = EmailService()
+    
+    result = email_service._parse_stored_addresses(
+        '["addr1@example.com", "addr2@example.com"]',
+        "email-id",
+        "to_addresses"
+    )
+    assert result == ["addr1@example.com", "addr2@example.com"]
+
+
+@pytest.mark.asyncio
+async def test_parse_stored_addresses_with_none(db_session):
+    """Test _parse_stored_addresses handles None input"""
+    email_service = EmailService()
+    
+    result = email_service._parse_stored_addresses(
+        None,
+        "email-id",
+        "to_addresses"
+    )
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_parse_stored_addresses_with_invalid_json(db_session):
+    """Test _parse_stored_addresses handles invalid JSON"""
+    email_service = EmailService()
+    
+    result = email_service._parse_stored_addresses(
+        "not-valid-json",
+        "email-id",
+        "to_addresses"
+    )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_normalize_attachments_with_none():
+    """Test _normalize_attachments handles None"""
+    email_service = EmailService()
+    
+    result = email_service._normalize_attachments(None)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_normalize_attachments_with_list():
+    """Test _normalize_attachments converts attachments to dicts"""
+    email_service = EmailService()
+    from app.schemas.email import EmailAttachment
+    
+    attachments = [
+        EmailAttachment(
+            filename="test.pdf",
+            content_type="application/pdf",
+            content_base64="dGVzdA=="
+        )
+    ]
+    
+    result = email_service._normalize_attachments(attachments)
+    assert len(result) == 1
+    assert result[0]["filename"] == "test.pdf"
+    assert result[0]["content_type"] == "application/pdf"
+
+
+@pytest.mark.asyncio
+async def test_create_email_creates_audit_log(db_session):
+    """Test email creation initializes audit log"""
+    email_service = EmailService()
+    
+    with patch('app.services.email.settings') as mock_settings:
+        mock_settings.get_allowed_mailfrom_list.return_value = [
+            "sender@yourdomain.com"
+        ]
+        
+        request = EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "caller_id": "service-a"
+            }
+        )
+        
+        email = await email_service.create_email(db_session, request)
+        
+        assert email.audit_log is not None
+        assert len(email.audit_log) == 1
+        assert email.audit_log[0]["status"] == EmailStatus.PENDING.value
+        assert "timestamp" in email.audit_log[0]
