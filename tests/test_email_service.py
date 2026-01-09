@@ -492,7 +492,8 @@ async def test_create_email_with_multiple_disallowed_headers(db_session):
             }
         )
         
-        with pytest.raises(ValueError) as exc_info:
+        match = r"X-Disallowed-1.*X-Disallowed-2|X-Disallowed-2.*X-Disallowed-1"
+        with pytest.raises(ValueError, match=match) as exc_info:
             await email_service.create_email(db_session, request)
         
         error_msg = str(exc_info.value)
