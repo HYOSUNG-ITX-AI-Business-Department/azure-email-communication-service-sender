@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
@@ -9,23 +10,23 @@ import worker
 from app.schemas.email import EmailStatus
 
 
-def _make_email(**overrides):
-    defaults = dict(
-        status=EmailStatus.PENDING,
-        retry_count=0,
-        from_address="from@example.com",
-        envelope_from="bounce@example.com",
-        to_addresses=["to@example.com"],
-        cc_addresses=None,
-        bcc_addresses=None,
-        reply_to=None,
-        headers=None,
-        attachments=None,
-        subject="Hello",
-        body="Body",
-        is_html=False,
-        error_message=None,
-    )
+def _make_email(**overrides: Any) -> SimpleNamespace:
+    defaults = {
+        "status": EmailStatus.PENDING,
+        "retry_count": 0,
+        "from_address": "from@example.com",
+        "envelope_from": "bounce@example.com",
+        "to_addresses": ["to@example.com"],
+        "cc_addresses": None,
+        "bcc_addresses": None,
+        "reply_to": None,
+        "headers": None,
+        "attachments": None,
+        "subject": "Hello",
+        "body": "Body",
+        "is_html": False,
+        "error_message": None,
+    }
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
 
