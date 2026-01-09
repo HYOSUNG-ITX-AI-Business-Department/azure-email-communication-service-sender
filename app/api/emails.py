@@ -111,10 +111,15 @@ async def get_email_status(
             if parsed_to is None:
                 parsed_to = []
         except (json.JSONDecodeError, TypeError):
+            address_count = (
+                len(email.to_addresses)
+                if isinstance(email.to_addresses, (list, tuple))
+                else 0
+            )
             logger.exception(
-                "Error parsing to_addresses for email %s: %r",
+                "Error parsing to_addresses for email %s (count: %d)",
                 email_id,
-                email.to_addresses,
+                address_count,
             )
             # Fall back to a safe default - use empty list
             parsed_to = []
