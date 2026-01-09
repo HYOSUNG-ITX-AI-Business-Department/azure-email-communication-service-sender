@@ -212,7 +212,7 @@ def test_email_request_missing_caller_id():
 def test_email_request_missing_required_fields():
     """Test email request missing required fields"""
     with pytest.raises(ValidationError):
-        EmailRequest(**{"caller_id": "test-caller"})
+        EmailRequest(caller_id="test-caller")
 
 
 def test_email_attachment_valid():
