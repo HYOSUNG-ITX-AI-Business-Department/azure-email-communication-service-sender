@@ -21,21 +21,21 @@ async def db_session():
         echo=False
     )
     
-    async with engine.begin() as conn:
+    async with engine.connect() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
-    AsyncSessionLocal = async_sessionmaker(
-        engine,
-        expire_on_commit=False
-    )
-    
-    session = AsyncSessionLocal()
-    try:
-        yield session
-    finally:
-        await session.close()
-        # Clean up tables for PostgreSQL tests
-        if "postgresql" in test_db_url:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.drop_all)
-        await engine.dispose()
+
+        trans = await conn.begin()
+        AsyncSessionLocal = async_sessionmaker(
+            bind=conn,
+            expire_on_commit=False,
+            join_transaction_mode="create_savepoint",
+        )
+
+        session = AsyncSessionLocal()
+        try:
+            yield session
+        finally:
+            await session.close()
+            await trans.rollback()
+
+    await engine.dispose()
