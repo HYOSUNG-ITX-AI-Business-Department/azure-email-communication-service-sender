@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas.email import (
@@ -18,10 +18,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/emails", tags=["emails"])
 
 
+async def get_authenticated_caller_id(
+    x_caller_id: str = Header(..., alias="X-Caller-Id"),
+) -> str:
+    return x_caller_id
+
+
 @router.post("/", response_model=EmailResponse, status_code=status.HTTP_202_ACCEPTED)
 async def send_email(
     email_request: EmailRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
 ):
     """
     Send an email
@@ -42,8 +49,15 @@ async def send_email(
     - **tags**: Optional tags for tracking
     - **caller_id**: Caller identifier for multi-tenant isolation
     - **idempotency_key**: Optional key to prevent duplicate submissions
+    - **X-Caller-Id**: Authenticated caller identifier header (must match caller_id)
     """
     try:
+        if email_request.caller_id != authenticated_caller_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="caller_id does not match authenticated caller",
+            )
+
         # Create and validate email record
         email_record = await email_service.create_email(db, email_request)
         
