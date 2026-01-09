@@ -97,6 +97,40 @@ async def test_process_email_permanent_smtp_error_moves_to_dlq(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_process_email_transient_smtp_error_requeues(monkeypatch):
+    email = _make_email()
+    updated_email = _make_email(retry_count=1)
+    email_service = SimpleNamespace(
+        get_by_id=AsyncMock(return_value=email),
+        update_status=AsyncMock(return_value=updated_email),
+    )
+    queue_service = SimpleNamespace(
+        complete=AsyncMock(),
+        move_to_dlq=AsyncMock(),
+        requeue_delayed=AsyncMock(),
+        increment_db_error_count=AsyncMock(return_value=1),
+        clear_db_error_count=AsyncMock(),
+    )
+    smtp_service = SimpleNamespace(
+        send_email=AsyncMock(side_effect=SMTPResponseException(450, "try later"))
+    )
+
+    monkeypatch.setattr(worker, "email_service", email_service)
+    monkeypatch.setattr(worker, "queue_service", queue_service)
+    monkeypatch.setattr(worker, "smtp_service", smtp_service)
+    monkeypatch.setattr(worker.settings, "max_retries", 3)
+    monkeypatch.setattr(worker.settings, "retry_delay_seconds", 10)
+
+    result = await worker.process_email(AsyncMock(), "email-1")
+
+    assert result is False
+    queue_service.requeue_delayed.assert_awaited_once()
+    queue_service.move_to_dlq.assert_not_awaited()
+    statuses = [call.args[2] for call in email_service.update_status.call_args_list]
+    assert EmailStatus.FAILED in statuses
+
+
+@pytest.mark.asyncio
 async def test_process_email_operational_error_requeues(monkeypatch):
     op_error = OperationalError("select", {}, Exception("db"))
     email_service = SimpleNamespace(
