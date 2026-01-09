@@ -211,7 +211,7 @@ class EmailService:
             body=email_request.body,
             is_html=1 if email_request.html else 0,
             attachments=attachments_payload,
-            status=EmailStatus.PENDING,
+            status=EmailStatus.PENDING.value,
             retry_count=0,
             audit_log=audit_log
         )
@@ -257,7 +257,7 @@ class EmailService:
             raise ValueError(f"Email {email_id} not found")
         
         # Update status
-        email.status = status
+        email.status = status.value
         email.updated_at = datetime.now(timezone.utc)
         
         if error_message:
