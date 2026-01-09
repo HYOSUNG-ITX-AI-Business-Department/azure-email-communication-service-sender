@@ -85,7 +85,7 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 3. **Attachment Support**: End-to-end handling of attachments in the email pipeline
 
-4. **Retry Strategy**: Immediate requeue for retries (production note: should use Valkey/Redis sorted sets for delayed retry)
+4. **Retry Strategy**: Delayed retry using Valkey/Redis sorted sets (ZADD) with exponential backoff
 
 5. **Error Handling**: Comprehensive error handling with appropriate HTTP status codes
 
