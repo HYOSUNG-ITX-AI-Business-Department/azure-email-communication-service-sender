@@ -1,7 +1,6 @@
 import pytest
 import os
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.models.email import Base
 
 
@@ -25,9 +24,8 @@ async def db_session():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    AsyncSessionLocal = sessionmaker(
+    AsyncSessionLocal = async_sessionmaker(
         engine,
-        class_=AsyncSession,
         expire_on_commit=False
     )
     
