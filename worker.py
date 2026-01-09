@@ -230,25 +230,29 @@ async def poll_delayed_queue(poll_interval: float = 1.0, batch_size: int = 100) 
 async def worker():
     """Main worker loop"""
     global shutdown_flag
-    
-    # Create database engine and session factory
-    engine = create_async_engine(
-        settings.database_url,
-        echo=False
-    )
-    AsyncSessionLocal = async_sessionmaker(
-        engine,
-        expire_on_commit=False
-    )
-    
-    logger.info("Worker started")
-    
-    # Connect to queue
-    await queue_service.connect()
-    
-    delayed_task = asyncio.create_task(poll_delayed_queue())
+
+    engine = None
+    delayed_task = None
+    AsyncSessionLocal = None
 
     try:
+        # Create database engine and session factory
+        engine = create_async_engine(
+            settings.database_url,
+            echo=False
+        )
+        AsyncSessionLocal = async_sessionmaker(
+            engine,
+            expire_on_commit=False
+        )
+
+        logger.info("Worker started")
+
+        # Connect to queue
+        await queue_service.connect()
+
+        delayed_task = asyncio.create_task(poll_delayed_queue())
+
         while not shutdown_flag:
             try:
                 # Dequeue next email (blocking with timeout)
@@ -278,11 +282,14 @@ async def worker():
                 
     finally:
         # Cleanup
-        delayed_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await delayed_task
-        await queue_service.disconnect()
-        await engine.dispose()
+        if delayed_task is not None:
+            delayed_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await delayed_task
+        with contextlib.suppress(Exception):
+            await queue_service.disconnect()
+        if engine is not None:
+            await engine.dispose()
         logger.info("Worker stopped")
 
 
