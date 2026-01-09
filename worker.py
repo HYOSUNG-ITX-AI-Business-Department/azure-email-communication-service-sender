@@ -68,14 +68,21 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
         # Check retry limit
         if email.retry_count >= settings.max_retries:
-            logger.error(f"Email {email_id} exceeded max retries ({settings.max_retries})")
+            dlq_reason = email.error_message or (
+                f"Exceeded max retries ({settings.max_retries})"
+            )
+            logger.error(
+                "Email %s exceeded max retries (%s)",
+                email_id,
+                settings.max_retries,
+            )
             await email_service.update_status(
                 db, email_id, EmailStatus.DLQ,
-                error_message=f"Exceeded max retries ({settings.max_retries})"
+                error_message=dlq_reason,
             )
             await queue_service.move_to_dlq(
                 email_id,
-                f"Exceeded max retries: {email.error_message}"
+                dlq_reason,
             )
             return False
         
