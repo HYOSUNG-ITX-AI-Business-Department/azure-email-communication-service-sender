@@ -56,13 +56,13 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         # Get email record
         email = await email_service.get_by_id(db, email_id)
         if not email:
-            logger.error(f"Email {email_id} not found in database")
+            logger.error("Email %s not found in database", email_id)
             await queue_service.complete(email_id)
             return False
         
         # Check if already sent
         if email.status == EmailStatus.SENT:
-            logger.info(f"Email {email_id} already sent, skipping")
+            logger.info("Email %s already sent, skipping", email_id)
             await queue_service.complete(email_id)
             return True
         
@@ -157,6 +157,9 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         logger.info("Successfully sent email %s", email_id)
         return True
         
+    except RedisError:
+        logger.exception("Redis error while processing email %s", email_id)
+        raise
     except OperationalError as exc:
         db_error = True
         try:
