@@ -102,6 +102,8 @@ def test_settings_default_values():
     assert settings.smtp_port == 587
     assert settings.max_retries == 3
     assert settings.retry_delay_seconds == 60
+    assert settings.max_retry_delay_seconds == 0
+    assert settings.retry_delay_jitter_seconds == 0
     assert settings.api_host == "127.0.0.1"
     assert settings.api_port == 8000
 
@@ -118,6 +120,8 @@ def test_settings_custom_values():
         database_url="postgresql://custom/db",
         max_retries=5,
         retry_delay_seconds=120,
+        max_retry_delay_seconds=300,
+        retry_delay_jitter_seconds=5,
         api_host="0.0.0.0",
         api_port=9000
     )
@@ -129,6 +133,8 @@ def test_settings_custom_values():
     assert settings.database_url == "postgresql://custom/db"
     assert settings.max_retries == 5
     assert settings.retry_delay_seconds == 120
+    assert settings.max_retry_delay_seconds == 300
+    assert settings.retry_delay_jitter_seconds == 5
     assert settings.api_host == "0.0.0.0"
     assert settings.api_port == 9000
 
@@ -164,6 +170,8 @@ def test_settings_from_env_file():
         'DATABASE_URL': 'postgresql://envdb',
         'MAX_RETRIES': '10',
         'RETRY_DELAY_SECONDS': '300',
+        'MAX_RETRY_DELAY_SECONDS': '600',
+        'RETRY_DELAY_JITTER_SECONDS': '7',
         'API_HOST': '0.0.0.0',
         'API_PORT': '8080'
     }):
@@ -176,5 +184,7 @@ def test_settings_from_env_file():
         assert settings.database_url == 'postgresql://envdb'
         assert settings.max_retries == 10
         assert settings.retry_delay_seconds == 300
+        assert settings.max_retry_delay_seconds == 600
+        assert settings.retry_delay_jitter_seconds == 7
         assert settings.api_host == '0.0.0.0'
         assert settings.api_port == 8080

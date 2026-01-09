@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import random
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.exc import OperationalError
@@ -35,9 +36,19 @@ def signal_handler(signum, _frame):
     shutdown_flag = True
 
 
-def calculate_backoff_delay(retry_count: int, base_delay: int) -> int:
+def calculate_backoff_delay(
+    retry_count: int,
+    base_delay: int,
+    max_delay_seconds: int = 0,
+    jitter_seconds: int = 0,
+) -> int:
     """Calculate exponential backoff delay in seconds."""
-    return base_delay * (2 ** max(retry_count - 1, 0))
+    delay = base_delay * (2 ** max(retry_count - 1, 0))
+    if jitter_seconds > 0:
+        delay += random.randint(0, jitter_seconds)
+    if max_delay_seconds > 0:
+        delay = min(delay, max_delay_seconds)
+    return delay
 
 
 async def process_email(db: AsyncSession, email_id: str) -> bool:
@@ -132,6 +143,8 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             delay_seconds = calculate_backoff_delay(
                 updated.retry_count,
                 settings.retry_delay_seconds,
+                settings.max_retry_delay_seconds,
+                settings.retry_delay_jitter_seconds,
             )
             await queue_service.requeue_delayed(email_id, delay_seconds)
             return False
@@ -146,6 +159,8 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             delay_seconds = calculate_backoff_delay(
                 updated.retry_count,
                 settings.retry_delay_seconds,
+                settings.max_retry_delay_seconds,
+                settings.retry_delay_jitter_seconds,
             )
             await queue_service.requeue_delayed(email_id, delay_seconds)
             return False
@@ -185,6 +200,8 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         delay_seconds = calculate_backoff_delay(
             retry_step,
             settings.retry_delay_seconds,
+            settings.max_retry_delay_seconds,
+            settings.retry_delay_jitter_seconds,
         )
         logger.warning(
             "Requeuing email %s after DB error (attempt %s) in %s seconds",
@@ -211,13 +228,20 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             delay_seconds = calculate_backoff_delay(
                 updated.retry_count,
                 settings.retry_delay_seconds,
+                settings.max_retry_delay_seconds,
+                settings.retry_delay_jitter_seconds,
             )
         except Exception:
             logger.exception(
                 "Failed to update status for email %s, using default backoff",
                 email_id,
             )
-            delay_seconds = calculate_backoff_delay(1, settings.retry_delay_seconds)
+            delay_seconds = calculate_backoff_delay(
+                1,
+                settings.retry_delay_seconds,
+                settings.max_retry_delay_seconds,
+                settings.retry_delay_jitter_seconds,
+            )
 
         try:
             await queue_service.requeue_delayed(email_id, delay_seconds)

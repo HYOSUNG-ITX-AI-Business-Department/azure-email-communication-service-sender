@@ -127,6 +127,8 @@ Configuration is done via environment variables (`.env` file):
 | `DATABASE_URL` | Database connection URL | `postgresql+asyncpg://emailuser:emailpass@localhost:5432/emails` |
 | `MAX_RETRIES` | Maximum retry attempts | `3` |
 | `RETRY_DELAY_SECONDS` | Initial retry delay (exponential backoff) | `60` |
+| `MAX_RETRY_DELAY_SECONDS` | Maximum retry delay (0 disables cap) | `0` |
+| `RETRY_DELAY_JITTER_SECONDS` | Retry delay jitter in seconds | `0` |
 | `API_HOST` | API server host | `127.0.0.1` |
 | `API_PORT` | API server port | `8000` |
 

@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     # Retry Configuration
     max_retries: int = 3
     retry_delay_seconds: int = 60
+    max_retry_delay_seconds: int = 0
+    retry_delay_jitter_seconds: int = 0
     
     # API Configuration
     # Note: Production deployments should explicitly set API_HOST=0.0.0.0 via environment variable

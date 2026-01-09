@@ -124,6 +124,8 @@ curl http://localhost:8000/api/v1/emails/
 - `DATABASE_URL` - Database URL (default: postgresql+asyncpg://emailuser:emailpass@localhost:5432/emails)
 - `MAX_RETRIES` - Maximum retry attempts (default: 3)
 - `RETRY_DELAY_SECONDS` - Initial retry delay (default: 60)
+- `MAX_RETRY_DELAY_SECONDS` - Maximum retry delay, 0 disables cap (default: 0)
+- `RETRY_DELAY_JITTER_SECONDS` - Retry delay jitter in seconds (default: 0)
 - `API_HOST` - API host (default: 127.0.0.1)
 - `API_PORT` - API port (default: 8000)
 - For production behind a reverse proxy (Nginx/Traefik), set `API_HOST=0.0.0.0` explicitly.
