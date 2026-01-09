@@ -28,6 +28,7 @@ class EmailService:
         field_name: str,
     ) -> list[str] | None:
         if raw_addresses is None:
+            # Normalize missing address lists to empty for stable comparisons.
             return []
         if isinstance(raw_addresses, list):
             return raw_addresses
@@ -106,6 +107,7 @@ class EmailService:
         field_name: str,
     ) -> dict | list | None:
         if raw_value is None:
+            # Preserve None to distinguish missing fields from invalid payloads.
             return None
         if isinstance(raw_value, (dict, list)):
             return raw_value
