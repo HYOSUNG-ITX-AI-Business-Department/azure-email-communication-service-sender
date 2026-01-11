@@ -120,6 +120,25 @@ async def test_send_email_missing_caller_id_header():
 
 
 @pytest.mark.asyncio
+async def test_send_email_empty_caller_id_header():
+    """Test email submission fails with empty X-Caller-Id header"""
+    async with get_test_client() as client:
+        response = await client.post(
+            "/api/v1/emails/",
+            json={
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test Subject",
+                "body": "Test Body",
+                "caller_id": "test-caller",
+            },
+            headers={"X-Caller-Id": "   "},
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.asyncio
 async def test_send_email_idempotency_conflict():
     """Test idempotency key reuse with different payload returns conflict"""
     with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create:

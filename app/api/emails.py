@@ -33,7 +33,18 @@ async def get_authenticated_caller_id(
     internet-facing deployments, replace this with verified authentication
     (JWT/API key) and derive the caller id from that identity.
     """
-    return x_caller_id
+    caller_id = x_caller_id.strip()
+    if not caller_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Caller-Id header cannot be empty",
+        )
+    if len(caller_id) > 256:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Caller-Id header is too long",
+        )
+    return caller_id
 
 
 @router.post("/", response_model=EmailResponse, status_code=status.HTTP_202_ACCEPTED)
