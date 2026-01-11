@@ -121,18 +121,20 @@ class EmailService:
         stored_headers = self._parse_stored_json(
             existing.headers, existing.id, "headers"
         )
+        if stored_headers is not None and not isinstance(stored_headers, dict):
+            raise StoredPayloadParseError(existing.id, "headers")
+
         stored_tags = self._parse_stored_json(
             existing.tags, existing.id, "tags"
         )
+        if stored_tags is not None and not isinstance(stored_tags, list):
+            raise StoredPayloadParseError(existing.id, "tags")
+
         stored_attachments = self._parse_stored_json(
             existing.attachments, existing.id, "attachments"
         )
-        if existing.headers is not None and stored_headers is None:
-            return False
-        if existing.tags is not None and stored_tags is None:
-            return False
-        if existing.attachments is not None and stored_attachments is None:
-            return False
+        if stored_attachments is not None and not isinstance(stored_attachments, list):
+            raise StoredPayloadParseError(existing.id, "attachments")
 
         request_attachments = self._normalize_attachments(email_request.attachments)
 
@@ -140,9 +142,6 @@ class EmailService:
         request_reply_to = (
             email_request.reply_to.lower() if email_request.reply_to else None
         )
-
-        if stored_headers is not None and not isinstance(stored_headers, dict):
-            return False
 
         stored_headers_normalized = self._normalize_headers(stored_headers)
         request_headers_normalized = self._normalize_headers(email_request.headers)
@@ -181,14 +180,24 @@ class EmailService:
         if isinstance(raw_value, (dict, list)):
             return raw_value
         try:
-            return json.loads(raw_value)
-        except (json.JSONDecodeError, TypeError):
+            parsed = json.loads(raw_value)
+        except (json.JSONDecodeError, TypeError) as exc:
             logger.exception(
                 "Invalid %s JSON for email %s while checking idempotency payload",
                 field_name,
                 email_id,
             )
-            return None
+            raise StoredPayloadParseError(email_id, field_name) from exc
+
+        if not isinstance(parsed, (dict, list)):
+            logger.error(
+                "Invalid %s JSON for email %s while checking idempotency payload: expected dict/list",
+                field_name,
+                email_id,
+            )
+            raise StoredPayloadParseError(email_id, field_name)
+
+        return parsed
 
     def _parse_audit_log(
         self,
