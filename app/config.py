@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+from typing import Any
 
 
 class Settings(BaseSettings):
@@ -74,5 +75,15 @@ def get_settings() -> Settings:
     return Settings()
 
 
-# Global settings instance for convenience
-settings = get_settings()
+class _SettingsProxy:
+    def __getattr__(self, name: str) -> Any:
+        return getattr(get_settings(), name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        setattr(get_settings(), name, value)
+
+    def __repr__(self) -> str:
+        return repr(get_settings())
+
+
+settings = _SettingsProxy()

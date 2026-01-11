@@ -24,6 +24,10 @@ def setup_test_env():
     os.environ["REDIS_URL"] = "redis://localhost:6379/1"
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+
     yield
 
     for key, value in original_env.items():
@@ -31,3 +35,5 @@ def setup_test_env():
             os.environ.pop(key, None)
         else:
             os.environ[key] = value
+
+    get_settings.cache_clear()
