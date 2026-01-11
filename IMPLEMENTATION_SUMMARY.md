@@ -79,7 +79,7 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 `pending` → `queued` → `sending` → `sent`
                                ↓
-                           `failed` → (retry) or `dlq`
+                           `failed` → (retries left → `queued`, max retries → `dlq`)
 
 ## Testing
 
