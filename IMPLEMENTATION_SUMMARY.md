@@ -80,9 +80,13 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 ## Testing
 
-- ✅ Unit + API test suite included (run `python -m pytest -q` for current status)
-- ✅ Code review feedback addressed in this PR
-- ✅ Recommend running security scans (e.g., CodeQL) in CI for your deployment context
+To run the test suite locally:
+
+```bash
+python -m pytest -q
+```
+
+Run security scans (e.g., CodeQL) in CI for your deployment context.
 
 ## Key Implementation Details
 
