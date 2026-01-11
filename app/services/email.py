@@ -327,7 +327,7 @@ class EmailService:
                         raise IdempotencyStoredPayloadCorruptionError() from parse_exc
 
                     if not payload_matches:
-                        raise IdempotencyPayloadMismatchError() from None
+                        raise IdempotencyPayloadMismatchError()
                     return existing
             raise
 
