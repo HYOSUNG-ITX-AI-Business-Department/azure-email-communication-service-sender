@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.email import EmailRecord
 from app.schemas.email import EmailRequest, EmailStatus, EmailAttachment
@@ -296,7 +297,29 @@ class EmailService:
         )
         
         db.add(email_record)
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError as exc:
+            await db.rollback()
+            if email_request.idempotency_key:
+                existing = await self.get_by_idempotency_key(
+                    db, email_request.caller_id, email_request.idempotency_key
+                )
+                if existing:
+                    try:
+                        payload_matches = self._payload_matches(
+                            existing,
+                            email_request,
+                            envelope_from,
+                        )
+                    except StoredPayloadParseError as parse_exc:
+                        raise IdempotencyStoredPayloadCorruptionError() from parse_exc
+
+                    if not payload_matches:
+                        raise IdempotencyPayloadMismatchError() from None
+                    return existing
+            raise
+
         await db.refresh(email_record)
         
         logger.info(

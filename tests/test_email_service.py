@@ -579,6 +579,67 @@ async def test_idempotency_payload_match_with_all_fields(db_session):
 
 
 @pytest.mark.asyncio
+async def test_idempotency_integrity_error_returns_existing_record():
+    """Test idempotency handles concurrent insert race via IntegrityError"""
+    from unittest.mock import AsyncMock
+    from sqlalchemy.exc import IntegrityError
+    from app.models.email import EmailRecord
+
+    email_service = EmailService()
+    email_service.validate_envelope_from = lambda _envelope_from: True
+    email_service._payload_matches = lambda *_args, **_kwargs: True
+
+    request = EmailRequest(
+        **{
+            "from": "sender@yourdomain.com",
+            "to": ["recipient@example.com"],
+            "subject": "Test",
+            "body": "Test body",
+            "idempotency_key": "key-race",
+            "caller_id": "service-a",
+        }
+    )
+
+    existing = EmailRecord(
+        id="existing-id",
+        caller_id="service-a",
+        idempotency_key="key-race",
+        from_address="sender@yourdomain.com",
+        envelope_from="sender@yourdomain.com",
+        to_addresses=["recipient@example.com"],
+        subject="Test",
+        body="Test body",
+        status=EmailStatus.PENDING.value,
+        retry_count=0,
+        audit_log=[],
+    )
+
+    email_service.get_by_idempotency_key = AsyncMock(side_effect=[None, existing])
+
+    class FakeDB:
+        def __init__(self) -> None:
+            self.rolled_back = False
+
+        def add(self, _obj) -> None:
+            return None
+
+        async def commit(self) -> None:
+            raise IntegrityError("stmt", {}, Exception("unique violation"))
+
+        async def rollback(self) -> None:
+            self.rolled_back = True
+
+        async def refresh(self, _obj) -> None:
+            raise AssertionError("refresh should not be called on IntegrityError path")
+
+    db = FakeDB()
+
+    result = await email_service.create_email(db, request)
+    assert result is existing
+    assert db.rolled_back is True
+
+
+@pytest.mark.asyncio
 async def test_idempotency_payload_mismatch_cc_addresses(db_session):
     """Test idempotency detects CC address changes"""
     email_service = EmailService()
