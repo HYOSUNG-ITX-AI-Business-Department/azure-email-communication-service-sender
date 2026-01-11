@@ -147,6 +147,30 @@ class EmailService:
             )
             return None
 
+    def _parse_audit_log(
+        self,
+        raw_audit_log: list | dict | str | None,
+        email_id: str,
+    ) -> list[dict]:
+        if raw_audit_log is None:
+            return []
+        if isinstance(raw_audit_log, list):
+            return list(raw_audit_log)
+        if isinstance(raw_audit_log, str):
+            try:
+                parsed = json.loads(raw_audit_log)
+                if isinstance(parsed, str):
+                    parsed = json.loads(parsed)
+            except (json.JSONDecodeError, TypeError):
+                logger.exception(
+                    "Corrupted audit_log for email %s, resetting to empty list",
+                    email_id,
+                )
+                return []
+            if isinstance(parsed, list):
+                return list(parsed)
+        return []
+
     def _normalize_attachments(
         self,
         attachments: list[EmailAttachment] | None,
@@ -299,22 +323,7 @@ class EmailService:
             email.sent_at = datetime.now(timezone.utc)
         
         # Update audit log
-        audit_log = []
-        if email.audit_log:
-            if isinstance(email.audit_log, list):
-                audit_log = list(email.audit_log)
-            else:
-                try:
-                    audit_log = json.loads(email.audit_log)
-                    if isinstance(audit_log, str):
-                        audit_log = json.loads(audit_log)
-                    if not isinstance(audit_log, list):
-                        audit_log = []
-                except (json.JSONDecodeError, TypeError):
-                    logger.exception(
-                        "Corrupted audit_log for email %s, resetting to empty list",
-                        email_id,
-                    )
+        audit_log = self._parse_audit_log(email.audit_log, email_id)
         audit_log.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": status.value,
