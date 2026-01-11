@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully implemented a complete Azure Email Communication Service Sender with REST API that meets all specified requirements.
+Implemented an Azure Email Communication Service Sender with a REST API and background worker. Validate configuration and behavior in your target environment before deployment.
 
 ## Core Requirements Met
 
@@ -150,7 +150,7 @@ See `.env.example` for the full configuration.
 
 ## Conclusion
 
-All requirements from the problem statement have been successfully implemented:
+Implemented the core functionality from the problem statement, including:
 - ✅ REST API for email requests
 - ✅ Validation, storage, and queuing by Sender Service
 - ✅ Worker connects to ACS SMTP Relay with STARTTLS
@@ -160,4 +160,4 @@ All requirements from the problem statement have been successfully implemented:
 - ✅ Status checking, idempotency, retry, DLQ
 - ✅ Audit trail and observability
 
-The system is ready for deployment with tests, documentation, and Docker support; validate in your target environment and consider adding migrations and CI security scans.
+The system can be deployed after environment-specific validation; for production, consider adding a migration strategy (the current DB setup uses SQLAlchemy `create_all`) and CI security scans.
