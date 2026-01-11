@@ -51,7 +51,7 @@ class Settings(BaseSettings):
         if not addresses:
             raise ValueError("ALLOWED_MAILFROM must contain at least one valid email address")
         
-        return addresses
+        return [addr.lower() for addr in addresses]
 
     def get_allowed_headers_list(self) -> list[str]:
         """Parse comma-separated allowed custom headers"""
