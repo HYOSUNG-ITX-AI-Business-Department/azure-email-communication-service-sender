@@ -19,7 +19,7 @@ class EmailService:
     """Service for email operations"""
 
     def _normalize_addresses(self, addresses: list[str] | None) -> list[str]:
-        return addresses or []
+        return addresses if addresses is not None else []
 
     def _parse_stored_addresses(
         self,
@@ -28,7 +28,7 @@ class EmailService:
         field_name: str,
     ) -> list[str] | None:
         if raw_addresses is None:
-            # Normalize missing address lists to empty for stable comparisons.
+            # Normalize missing lists to empty so omission and [] are equivalent.
             return []
         if isinstance(raw_addresses, list):
             return raw_addresses
