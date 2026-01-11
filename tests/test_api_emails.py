@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi import status
 from httpx import AsyncClient, ASGITransport
 from app.main import app
-from app.schemas.email import EmailStatus, EmailRequest
+from app.schemas.email import EmailStatus
 from app.services.email import IdempotencyPayloadMismatchError
 from app.models.email import EmailRecord
 from datetime import datetime, timezone
