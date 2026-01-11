@@ -41,7 +41,10 @@
 
 - Purpose: Fetch status/details.
 - Authorization: Caller-scoped (`email.caller_id` must match `X-Caller-Id`).
-- Defensive parsing: stored `to_addresses` is normalized to `list[str]`, and unknown DB `status` falls back safely.
+- Defensive parsing:
+  - `to_addresses` is normalized to `list[str]` (malformed values fall back to `[]` and are logged).
+  - Unknown DB `status` values are logged at WARN and mapped to `failed`.
+  - Example: `to_addresses='[\"a@example.com\"]'` → `["a@example.com"]`; `status="unexpected"` → `failed`.
 
 ### `GET /api/v1/emails/` (Queue stats)
 
