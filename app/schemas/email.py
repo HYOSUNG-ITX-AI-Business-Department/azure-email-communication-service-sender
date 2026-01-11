@@ -38,9 +38,9 @@ class EmailAttachment(BaseModel):
     @classmethod
     def _validate_filename(cls, value: str) -> str:
         if value in {".", ".."}:
-            raise ValueError("filename must not be a path traversal token")
+            raise ValueError("filename must not be a path traversal token")  # noqa: TRY003
         if "/" in value or "\\" in value:
-            raise ValueError("filename must not contain path separators")
+            raise ValueError("filename must not contain path separators")  # noqa: TRY003
         return value
 
     @field_validator("content_base64")
@@ -49,10 +49,10 @@ class EmailAttachment(BaseModel):
         try:
             decoded = base64.b64decode(value, validate=True)
         except (binascii.Error, ValueError) as exc:
-            raise ValueError("content_base64 must be valid base64") from exc
+            raise ValueError("content_base64 must be valid base64") from exc  # noqa: TRY003
 
         if len(decoded) > MAX_ATTACHMENT_BYTES:
-            raise ValueError("content_base64 exceeds maximum allowed size")
+            raise ValueError("content_base64 exceeds maximum allowed size")  # noqa: TRY003
 
         return value
 
@@ -100,7 +100,7 @@ class EmailRequest(BaseModel):
         if value is None:
             return value
         if "\r" in value or "\n" in value:
-            raise ValueError("CR/LF characters are not allowed")
+            raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
         return value
 
     @field_validator("to", "cc", "bcc")
@@ -112,7 +112,7 @@ class EmailRequest(BaseModel):
             return value
         for address in value:
             if "\r" in address or "\n" in address:
-                raise ValueError("CR/LF characters are not allowed")
+                raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
         return value
 
     @field_validator("headers")
@@ -124,9 +124,9 @@ class EmailRequest(BaseModel):
             return value
         for header_name, header_value in value.items():
             if "\r" in header_name or "\n" in header_name:
-                raise ValueError("CR/LF characters are not allowed")
+                raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
             if "\r" in header_value or "\n" in header_value:
-                raise ValueError("CR/LF characters are not allowed")
+                raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
         return value
 
 
