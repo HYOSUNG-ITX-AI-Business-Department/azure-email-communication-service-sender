@@ -10,6 +10,15 @@ from app.services.email import (
 from app.schemas.email import EmailRequest, EmailStatus
 
 
+def parse_audit_log(audit_log):
+    """Parse audit_log stored as list or JSON string."""
+    if audit_log is None:
+        return None
+    if isinstance(audit_log, str):
+        return json.loads(audit_log)
+    return audit_log
+
+
 @pytest.mark.asyncio
 async def test_create_email_with_default_envelope_from(db_session):
     """Test email creation with default envelope_from (aligned)"""
@@ -306,9 +315,7 @@ async def test_update_status_with_audit_trail(db_session):
         assert updated.status == EmailStatus.QUEUED
         assert updated.audit_log is not None
 
-        audit_entries = updated.audit_log
-        if isinstance(audit_entries, str):
-            audit_entries = json.loads(audit_entries)
+        audit_entries = parse_audit_log(updated.audit_log)
         assert len(audit_entries) == 2
         latest_entry = audit_entries[-1]
         assert latest_entry["status"] == EmailStatus.QUEUED.value
@@ -358,9 +365,7 @@ async def test_update_status_handles_corrupted_audit_log(db_session):
             EmailStatus.QUEUED
         )
 
-        audit_entries = updated.audit_log
-        if isinstance(audit_entries, str):
-            audit_entries = json.loads(audit_entries)
+        audit_entries = parse_audit_log(updated.audit_log)
         assert len(audit_entries) == 1
         assert audit_entries[0]["status"] == EmailStatus.QUEUED.value
 
@@ -820,9 +825,7 @@ async def test_update_status_increment_retry(db_session):
         assert updated.error_message == ""
         assert updated.retry_count == 1
 
-        audit_entries = updated.audit_log
-        if isinstance(audit_entries, str):
-            audit_entries = json.loads(audit_entries)
+        audit_entries = parse_audit_log(updated.audit_log)
         assert audit_entries[-1]["message"] == ""
 
 
@@ -989,9 +992,7 @@ async def test_create_email_creates_audit_log(db_session):
         email = await email_service.create_email(db_session, request)
         
         assert email.audit_log is not None
-        audit_entries = email.audit_log
-        if isinstance(audit_entries, str):
-            audit_entries = json.loads(audit_entries)
+        audit_entries = parse_audit_log(email.audit_log)
         assert len(audit_entries) == 1
         assert audit_entries[0]["status"] == EmailStatus.PENDING.value
         assert "timestamp" in audit_entries[0]
