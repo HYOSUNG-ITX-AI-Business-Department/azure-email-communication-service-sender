@@ -5,6 +5,18 @@ from functools import lru_cache
 class ConfigurationError(ValueError):
     """Configuration validation error."""
 
+    ALLOWED_MAILFROM_EMPTY = "ALLOWED_MAILFROM configuration is required and cannot be empty"
+    ALLOWED_MAILFROM_NO_VALID_ADDRESS = (
+        "ALLOWED_MAILFROM must contain at least one valid email address"
+    )
+    ALLOWED_MAILFROM_INVALID_FORMAT = (
+        "ALLOWED_MAILFROM entries must be in the form local@domain"
+    )
+    ALLOWED_HEADERS_EMPTY = (
+        "ALLOWED_HEADERS configuration is required when headers are provided"
+    )
+    ALLOWED_HEADERS_NO_VALID_HEADER = "ALLOWED_HEADERS must contain at least one header name"
+
 
 class Settings(BaseSettings):
     # SMTP Configuration
@@ -54,7 +66,7 @@ class Settings(BaseSettings):
         """
         if not self.allowed_mailfrom or not self.allowed_mailfrom.strip():
             raise ConfigurationError(
-                "ALLOWED_MAILFROM configuration is required and cannot be empty"
+                ConfigurationError.ALLOWED_MAILFROM_EMPTY
             )
         
         # Split, strip whitespace, and filter out empty/whitespace-only strings
@@ -63,7 +75,7 @@ class Settings(BaseSettings):
         
         if not addresses:
             raise ConfigurationError(
-                "ALLOWED_MAILFROM must contain at least one valid email address"
+                ConfigurationError.ALLOWED_MAILFROM_NO_VALID_ADDRESS
             )
 
         normalized: list[str] = []
@@ -73,7 +85,7 @@ class Settings(BaseSettings):
             domain_part = domain_part.strip()
             if separator != "@" or not local_part or not domain_part:
                 raise ConfigurationError(
-                    "ALLOWED_MAILFROM entries must be in the form local@domain"
+                    ConfigurationError.ALLOWED_MAILFROM_INVALID_FORMAT
                 )
             normalized.append(f"{local_part}@{domain_part.lower()}")
 
@@ -83,7 +95,7 @@ class Settings(BaseSettings):
         """Parse comma-separated allowed custom headers"""
         if not self.allowed_headers or not self.allowed_headers.strip():
             raise ConfigurationError(
-                "ALLOWED_HEADERS configuration is required when headers are provided"
+                ConfigurationError.ALLOWED_HEADERS_EMPTY
             )
 
         headers = [header.strip() for header in self.allowed_headers.split(",")]
@@ -91,7 +103,7 @@ class Settings(BaseSettings):
 
         if not headers:
             raise ConfigurationError(
-                "ALLOWED_HEADERS must contain at least one header name"
+                ConfigurationError.ALLOWED_HEADERS_NO_VALID_HEADER
             )
 
         return headers
