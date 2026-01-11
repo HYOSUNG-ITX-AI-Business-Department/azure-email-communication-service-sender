@@ -396,7 +396,10 @@ async def test_get_queue_stats_success():
         mock_dlq.return_value = 2
         
         async with get_test_client() as client:
-            response = await client.get("/api/v1/emails/")
+            response = await client.get(
+                "/api/v1/emails/",
+                headers={"X-Caller-Id": "test-caller"},
+            )
         
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -412,7 +415,10 @@ async def test_get_queue_stats_error():
         mock_queue.side_effect = Exception("Redis connection failed")
         
         async with get_test_client() as client:
-            response = await client.get("/api/v1/emails/")
+            response = await client.get(
+                "/api/v1/emails/",
+                headers={"X-Caller-Id": "test-caller"},
+            )
         
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 

@@ -169,7 +169,9 @@ async def get_email_status(
 
 
 @router.get("/", response_model=QueueStatsResponse)
-async def get_queue_stats():
+async def get_queue_stats(
+    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
+):
     """
     Get queue statistics
     
