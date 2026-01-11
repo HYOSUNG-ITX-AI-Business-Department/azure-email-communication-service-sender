@@ -167,24 +167,18 @@ async def test_idempotency_key(db_session):
         assert email3.caller_id == "service-b"
 
 
-@pytest.mark.asyncio
-async def test_caller_id_is_required():
+def test_caller_id_is_required():
     """Test caller_id is required for email requests"""
-    with patch('app.services.email.settings') as mock_settings:
-        mock_settings.get_allowed_mailfrom_list.return_value = [
-            "sender@yourdomain.com"
-        ]
-
-        with pytest.raises(ValidationError):
-            EmailRequest(
-                **{
-                    "from": "sender@yourdomain.com",
-                    "to": ["recipient@example.com"],
-                    "subject": "Test",
-                    "body": "Test body",
-                    "idempotency_key": "key-without-caller"
-                }
-            )
+    with pytest.raises(ValidationError):
+        EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "idempotency_key": "key-without-caller"
+            }
+        )
 
 
 @pytest.mark.asyncio
