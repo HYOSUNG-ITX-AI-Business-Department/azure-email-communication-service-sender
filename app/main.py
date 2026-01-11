@@ -103,14 +103,12 @@ async def readiness_check():
 
 
 if __name__ == "__main__":
-    import os
     import uvicorn
     from app.config import settings
     
-    reload = os.getenv("DEBUG", "false").lower() == "true"
     uvicorn.run(
         "app.main:app",
         host=settings.api_host,
         port=settings.api_port,
-        reload=reload,
+        reload=settings.debug,
     )

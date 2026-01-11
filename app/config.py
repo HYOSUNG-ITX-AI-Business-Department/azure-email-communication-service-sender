@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Note: Production deployments should explicitly set API_HOST=0.0.0.0 via environment variable
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+    debug: bool = False
 
     # Admin/ops allowlist for queue stats endpoint (comma-separated caller ids)
     queue_stats_allowed_callers: str = ""
