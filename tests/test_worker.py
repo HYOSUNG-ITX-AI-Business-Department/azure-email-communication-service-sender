@@ -13,7 +13,7 @@ from app.schemas.email import EmailStatus
 
 def _make_email(**overrides: Any) -> SimpleNamespace:  # noqa: ANN401
     defaults = {
-        "status": EmailStatus.PENDING,
+        "status": EmailStatus.PENDING.value,
         "retry_count": 0,
         "from_address": "from@example.com",
         "envelope_from": "bounce@example.com",
