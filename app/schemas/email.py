@@ -83,6 +83,8 @@ class EmailRequest(BaseModel):
         "from_address",
         "envelope_from",
         "reply_to",
+        "idempotency_key",
+        "caller_id",
     )
     @classmethod
     def _reject_crlf_in_string_fields(cls, value: str | None) -> str | None:

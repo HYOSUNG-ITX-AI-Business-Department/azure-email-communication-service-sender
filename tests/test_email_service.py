@@ -219,6 +219,35 @@ def test_reject_crlf_in_headers():
         )
 
 
+def test_reject_crlf_in_caller_id():
+    """Test CR/LF characters are rejected in caller_id"""
+    with pytest.raises(ValidationError):
+        EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "caller_id": "service-a\r\n",
+            }
+        )
+
+
+def test_reject_crlf_in_idempotency_key():
+    """Test CR/LF characters are rejected in idempotency_key"""
+    with pytest.raises(ValidationError):
+        EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "caller_id": "service-a",
+                "idempotency_key": "key\r\n",
+            }
+        )
+
+
 @pytest.mark.asyncio
 async def test_idempotency_not_enforced_without_idempotency_key(db_session):
     """Test idempotency is not enforced when idempotency_key is missing"""
