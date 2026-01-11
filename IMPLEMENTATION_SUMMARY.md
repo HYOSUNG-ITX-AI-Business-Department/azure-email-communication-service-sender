@@ -123,18 +123,21 @@ Client → REST API (FastAPI) → PostgreSQL Database
 Set the following environment variables:
 
 ```bash
-SMTP_HOST=smtp.azurecomm.net
-SMTP_PORT=587
-SMTP_USERNAME=<your-entra-smtp-username>
-SMTP_PASSWORD=<your-smtp-password>
-ALLOWED_MAILFROM=<comma-separated-verified-addresses>
-ALLOWED_HEADERS=<comma-separated-allowed-headers>  # optional (comma-separated; trimmed; must contain >= 1 header if set)
-REDIS_URL=redis://localhost:6379/0
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/emails
-MAX_RETRIES=3
-RETRY_DELAY_SECONDS=60
-API_HOST=127.0.0.1
-API_PORT=8000
+SMTP_HOST=smtp.azurecomm.net  # optional (default shown)
+SMTP_PORT=587  # optional (default shown)
+SMTP_USERNAME=<your-entra-smtp-username>  # required
+SMTP_PASSWORD=<your-smtp-password>  # required
+ALLOWED_MAILFROM=<comma-separated-verified-addresses>  # required; trimmed; must contain >=1; domain normalized to lowercase
+ALLOWED_HEADERS=<comma-separated-allowed-headers>  # optional; trimmed; must contain >=1 header if set
+REDIS_URL=redis://localhost:6379/0  # optional (default shown)
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/emails  # optional (default shown)
+MAX_RETRIES=3  # optional (default: 3)
+RETRY_DELAY_SECONDS=60  # optional (default: 60)
+MAX_RETRY_DELAY_SECONDS=0  # optional (default: 0 disables cap)
+RETRY_DELAY_JITTER_SECONDS=0  # optional (default: 0)
+API_HOST=127.0.0.1  # optional (default: 127.0.0.1; set 0.0.0.0 for containers)
+API_PORT=8000  # optional (default: 8000)
+DEBUG=false  # optional (true enables uvicorn reload)
 ```
 
 See `.env.example` for the full configuration.
