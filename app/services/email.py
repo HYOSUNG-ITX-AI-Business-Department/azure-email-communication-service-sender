@@ -340,7 +340,7 @@ class EmailService:
         )
         return email_record
     
-    async def get_by_id(self, db: AsyncSession, email_id: str) -> EmailRecord:
+    async def get_by_id(self, db: AsyncSession, email_id: str) -> EmailRecord | None:
         """Get email by ID"""
         result = await db.execute(
             select(EmailRecord).where(EmailRecord.id == email_id)
@@ -349,7 +349,7 @@ class EmailService:
     
     async def get_by_idempotency_key(
         self, db: AsyncSession, caller_id: str, idempotency_key: str
-    ) -> EmailRecord:
+    ) -> EmailRecord | None:
         """Get email by caller_id and idempotency key"""
         result = await db.execute(
             select(EmailRecord).where(
