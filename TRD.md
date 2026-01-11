@@ -109,7 +109,11 @@
 ## Configuration
 
 Key environment variables:
-- SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
+- SMTP:
+  - `SMTP_HOST` (optional, string, default: `smtp.azurecomm.net`)
+  - `SMTP_PORT` (optional, int, default: `587`)
+  - `SMTP_USERNAME` (required, string)
+  - `SMTP_PASSWORD` (required, string; secret)
   - Secrets (examples; do not commit to git):
     - Strategy: dev uses local `.env`; staging/prod should inject secrets from a remote secret store and CI/CD.
     - Azure Key Vault: store `SMTP_USERNAME`/`SMTP_PASSWORD` as secrets and grant the app a Managed Identity with secret `get` access.
@@ -125,14 +129,26 @@ Key environment variables:
 
     - Rotation checklist: rotate credentials, update vault/CI secrets, deploy, verify sends, keep a rollback plan.
   - TLS: SMTP sending uses STARTTLS with certificate validation enabled; ensure the runtime has an appropriate CA bundle.
-- Security: `ALLOWED_MAILFROM`, `ALLOWED_HEADERS`, `QUEUE_STATS_ALLOWED_CALLERS`
-- Infra: `REDIS_URL`, `DATABASE_URL`
+- Security:
+  - `ALLOWED_MAILFROM` (required, comma-separated string; must contain at least one valid address)
+  - `ALLOWED_HEADERS` (optional, comma-separated string; required when sending custom headers)
+  - `QUEUE_STATS_ALLOWED_CALLERS` (optional, comma-separated string; required to enable queue stats endpoint)
+- Infra:
+  - `REDIS_URL` (optional, string URL, default: `redis://localhost:6379/0`)
+  - `DATABASE_URL` (optional, string URL, default: `postgresql+asyncpg://emailuser@localhost:5432/emails`)
   - Secrets: prefer secret manager injection for any credentials embedded in connection URLs.
   - TLS/SSL:
     - Redis: use the `rediss://` scheme in `REDIS_URL` (no extra flags), e.g. `REDIS_URL=rediss://:password@host:6379/0`.
     - DB: configure TLS via `DATABASE_URL` options (e.g., Postgres `sslmode=require`) and the driver's standard TLS parameters.
-- Retry: `MAX_RETRIES`, `RETRY_DELAY_SECONDS`, `MAX_RETRY_DELAY_SECONDS`, `RETRY_DELAY_JITTER_SECONDS`
-- API: `API_HOST`, `API_PORT`, `DEBUG` (also controls uvicorn reload and dev-only DB auto-creation)
+- Retry:
+  - `MAX_RETRIES` (optional, int, default: `3`)
+  - `RETRY_DELAY_SECONDS` (optional, int, default: `60`)
+  - `MAX_RETRY_DELAY_SECONDS` (optional, int, default: `0` meaning no cap)
+  - `RETRY_DELAY_JITTER_SECONDS` (optional, int, default: `0` meaning no jitter)
+- API:
+  - `API_HOST` (optional, string, default: `127.0.0.1`; set `0.0.0.0` in production)
+  - `API_PORT` (optional, int, default: `8000`)
+  - `DEBUG` (optional, bool, default: `false`; also controls uvicorn reload and dev-only DB auto-creation)
 - Operations (suggested future options):
   - Worker tuning: `WORKER_COUNT`, `BATCH_SIZE`
   - Logging: `LOG_LEVEL`, `LOG_FORMAT`, `LOG_OUTPUT`
