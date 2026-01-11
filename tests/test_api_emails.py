@@ -20,7 +20,22 @@ def get_test_client() -> AsyncClient:
 @pytest.mark.asyncio
 async def test_send_email_success():
     """Test successful email submission"""
-    mock_email_record = EmailRecord(
+    pending_email_record = EmailRecord(
+        id="test-email-id",
+        caller_id="test-caller",
+        from_address="sender@yourdomain.com",
+        envelope_from="sender@yourdomain.com",
+        to_addresses=["recipient@example.com"],
+        subject="Test Subject",
+        body="Test Body",
+        status=EmailStatus.PENDING.value,
+        retry_count=0,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        audit_log=[]
+    )
+
+    queued_email_record = EmailRecord(
         id="test-email-id",
         caller_id="test-caller",
         from_address="sender@yourdomain.com",
@@ -30,17 +45,17 @@ async def test_send_email_success():
         body="Test Body",
         status=EmailStatus.QUEUED.value,
         retry_count=0,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
-        audit_log=[]
+        created_at=pending_email_record.created_at,
+        updated_at=pending_email_record.updated_at,
+        audit_log=[],
     )
     
     with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create, \
          patch('app.api.emails.email_service.update_status', new_callable=AsyncMock) as mock_update, \
          patch('app.api.emails.queue_service.enqueue', new_callable=AsyncMock) as mock_enqueue:
         
-        mock_create.return_value = mock_email_record
-        mock_update.return_value = mock_email_record
+        mock_create.return_value = pending_email_record
+        mock_update.return_value = queued_email_record
         
         async with get_test_client() as client:
             response = await client.post(
@@ -126,6 +141,58 @@ async def test_send_email_idempotency_conflict():
         
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_send_email_idempotency_replay_does_not_enqueue():
+    """Test idempotency replay returns existing status without requeueing"""
+    existing_email = EmailRecord(
+        id="test-email-id",
+        caller_id="test-caller",
+        from_address="sender@yourdomain.com",
+        envelope_from="sender@yourdomain.com",
+        to_addresses=["recipient@example.com"],
+        subject="Test Subject",
+        body="Test Body",
+        status=EmailStatus.SENT.value,
+        retry_count=0,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        audit_log=[],
+    )
+
+    with patch(
+        "app.api.emails.email_service.create_email",
+        new_callable=AsyncMock,
+    ) as mock_create, patch(
+        "app.api.emails.email_service.update_status",
+        new_callable=AsyncMock,
+    ) as mock_update, patch(
+        "app.api.emails.queue_service.enqueue",
+        new_callable=AsyncMock,
+    ) as mock_enqueue:
+        mock_create.return_value = existing_email
+
+        async with get_test_client() as client:
+            response = await client.post(
+                "/api/v1/emails/",
+                json={
+                    "from": "sender@yourdomain.com",
+                    "to": ["recipient@example.com"],
+                    "subject": "Test Subject",
+                    "body": "Test Body",
+                    "caller_id": "test-caller",
+                    "idempotency_key": "key-123",
+                },
+                headers={"X-Caller-Id": "test-caller"},
+            )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+        data = response.json()
+        assert data["email_id"] == "test-email-id"
+        assert data["status"] == EmailStatus.SENT.value
+        mock_update.assert_not_awaited()
+        mock_enqueue.assert_not_awaited()
 
 
 @pytest.mark.asyncio
