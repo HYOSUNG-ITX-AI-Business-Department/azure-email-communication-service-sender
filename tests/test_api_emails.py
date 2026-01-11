@@ -435,16 +435,16 @@ async def test_health_check_endpoint():
     """Test health check endpoint"""
 
     class FakeSession:
-        async def __aenter__(self):
+        async def __aenter__(self) -> "FakeSession":
             return self
 
-        async def __aexit__(self, _exc_type, _exc, _tb):
+        async def __aexit__(self, _exc_type, _exc, _tb) -> bool:
             return False
 
-        async def execute(self, _stmt):
+        async def execute(self, _stmt) -> None:
             return None
 
-    def fake_session_local():
+    def fake_session_local() -> FakeSession:
         return FakeSession()
 
     fake_redis_client = MagicMock(ping=AsyncMock(return_value=True))
@@ -467,16 +467,16 @@ async def test_readiness_check_endpoint():
     """Test readiness check endpoint"""
 
     class FakeSession:
-        async def __aenter__(self):
+        async def __aenter__(self) -> "FakeSession":
             return self
 
-        async def __aexit__(self, _exc_type, _exc, _tb):
+        async def __aexit__(self, _exc_type, _exc, _tb) -> bool:
             return False
 
-        async def execute(self, _stmt):
+        async def execute(self, _stmt) -> None:
             return None
 
-    def fake_session_local():
+    def fake_session_local() -> FakeSession:
         return FakeSession()
 
     fake_redis_client = MagicMock(ping=AsyncMock(return_value=True))
