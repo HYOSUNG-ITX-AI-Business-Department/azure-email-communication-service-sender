@@ -86,12 +86,21 @@
   - After `MAX_RETRIES`, move to DLQ and persist `DLQ` status with error reason.
 
 ## Configuration
+
 Key environment variables:
 - SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
+  - Secrets: treat `SMTP_PASSWORD` as a secret; inject via a secret manager (e.g., GitHub Actions secrets, Azure Key Vault) rather than committing `.env` for production.
+  - TLS: SMTP sending uses STARTTLS with certificate validation enabled; ensure the runtime has an appropriate CA bundle.
 - Security: `ALLOWED_MAILFROM`, `ALLOWED_HEADERS`, `QUEUE_STATS_ALLOWED_CALLERS`
 - Infra: `REDIS_URL`, `DATABASE_URL`
+  - Secrets: prefer secret manager injection for any credentials embedded in connection URLs.
+  - TLS/SSL: use `rediss://` for Redis; configure DB TLS via `DATABASE_URL` options (e.g., Postgres `sslmode=require`) or add explicit flags (e.g., `REDIS_TLS`, `DB_SSL_MODE`) if you externalize TLS settings.
 - Retry: `MAX_RETRIES`, `RETRY_DELAY_SECONDS`, `MAX_RETRY_DELAY_SECONDS`, `RETRY_DELAY_JITTER_SECONDS`
 - API: `API_HOST`, `API_PORT`, `DEBUG` (also controls uvicorn reload and dev-only DB auto-creation)
+- Operations (suggested future options):
+  - Worker tuning: `WORKER_COUNT`, `BATCH_SIZE`
+  - Logging: `LOG_LEVEL`, `LOG_FORMAT`, `LOG_OUTPUT`
+  - Keep a separate security/ops guide for production deployments.
 
 ## Production Considerations
 
