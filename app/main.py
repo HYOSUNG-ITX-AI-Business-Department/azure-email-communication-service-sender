@@ -5,7 +5,9 @@ import logging
 from app.api import emails
 from app.database import AsyncSessionLocal, init_db
 from app.services.queue import queue_service
+from redis.exceptions import RedisError
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 # Configure logging
 logging.basicConfig(
@@ -47,14 +49,14 @@ async def _dependency_checks() -> dict[str, bool]:
         if queue_service.redis_client is not None:
             await queue_service.redis_client.ping()
             checks["redis"] = True
-    except Exception:
+    except RedisError:
         logger.exception("Dependency check failed: redis")
 
     try:
         async with AsyncSessionLocal() as db:
             await db.execute(text("SELECT 1"))
         checks["database"] = True
-    except Exception:
+    except SQLAlchemyError:
         logger.exception("Dependency check failed: database")
 
     return checks
