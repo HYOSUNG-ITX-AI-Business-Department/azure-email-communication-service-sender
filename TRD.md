@@ -110,7 +110,20 @@
 
 Key environment variables:
 - SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`
-  - Secrets: treat `SMTP_PASSWORD` as a secret; inject via a secret manager (e.g., GitHub Actions secrets, Azure Key Vault) rather than committing `.env` for production.
+  - Secrets (examples; do not commit to git):
+    - Strategy: dev uses local `.env`; staging/prod should inject secrets from a remote secret store and CI/CD.
+    - Azure Key Vault: store `SMTP_USERNAME`/`SMTP_PASSWORD` as secrets and grant the app a Managed Identity with secret `get` access.
+    - GitHub Actions: store `SMTP_*` as repository/org secrets and pass them as environment variables, e.g.
+
+      ```yaml
+      env:
+        SMTP_HOST: ${{ secrets.SMTP_HOST }}
+        SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+        SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      ```
+
+    - Rotation checklist: rotate credentials, update vault/CI secrets, deploy, verify sends, keep a rollback plan.
   - TLS: SMTP sending uses STARTTLS with certificate validation enabled; ensure the runtime has an appropriate CA bundle.
 - Security: `ALLOWED_MAILFROM`, `ALLOWED_HEADERS`, `QUEUE_STATS_ALLOWED_CALLERS`
 - Infra: `REDIS_URL`, `DATABASE_URL`
