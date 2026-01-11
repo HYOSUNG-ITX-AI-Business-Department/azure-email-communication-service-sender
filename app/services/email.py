@@ -324,7 +324,7 @@ class EmailService:
         db.add(email_record)
         try:
             await db.commit()
-        except IntegrityError:
+        except IntegrityError as integrity_err:
             await db.rollback()
             if email_request.idempotency_key:
                 existing = await self.get_by_idempotency_key(
@@ -341,7 +341,7 @@ class EmailService:
                         raise IdempotencyStoredPayloadCorruptionError() from parse_exc
 
                     if not payload_matches:
-                        raise IdempotencyPayloadMismatchError()
+                        raise IdempotencyPayloadMismatchError() from integrity_err
                     return existing
             raise
 
