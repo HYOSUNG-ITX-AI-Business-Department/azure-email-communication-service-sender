@@ -310,7 +310,7 @@ class EmailService:
         db.add(email_record)
         try:
             await db.commit()
-        except IntegrityError as exc:
+        except IntegrityError:
             await db.rollback()
             if email_request.idempotency_key:
                 existing = await self.get_by_idempotency_key(
