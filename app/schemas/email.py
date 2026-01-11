@@ -47,6 +47,15 @@ class EmailAttachment(BaseModel):
             raise ValueError("filename must not contain path separators")  # noqa: TRY003
         return value
 
+    @field_validator("content_type")
+    @classmethod
+    def _validate_content_type(cls, value: str) -> str:
+        if "\r" in value or "\n" in value:
+            raise ValueError(  # noqa: TRY003
+                "content_type must not contain CR/LF characters"
+            )
+        return value
+
     @field_validator("content_base64")
     @classmethod
     def _validate_content_base64(cls, value: str) -> str:
