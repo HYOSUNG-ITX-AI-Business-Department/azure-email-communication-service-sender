@@ -80,6 +80,7 @@ async def test_process_email_marks_sent(monkeypatch):
     statuses = [call.args[2] for call in email_service.update_status.call_args_list]
     assert statuses[0] == EmailStatus.SENDING
     assert statuses[-1] == EmailStatus.SENT
+    smtp_service.send_email.assert_awaited_once()
 
 
 @pytest.mark.asyncio
