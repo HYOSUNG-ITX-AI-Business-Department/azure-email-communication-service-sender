@@ -180,6 +180,29 @@ def test_caller_id_is_required():
             }
         )
 
+    with pytest.raises(ValidationError):
+        EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test\r\nBcc: attacker@example.com",
+                "body": "Test body",
+                "caller_id": "service-a",
+            }
+        )
+
+    with pytest.raises(ValidationError):
+        EmailRequest(
+            **{
+                "from": "sender@yourdomain.com",
+                "to": ["recipient@example.com"],
+                "subject": "Test",
+                "body": "Test body",
+                "caller_id": "service-a",
+                "headers": {"X-Custom": "value\r\nBcc: attacker@example.com"},
+            }
+        )
+
 
 @pytest.mark.asyncio
 async def test_idempotency_not_enforced_without_idempotency_key(db_session):

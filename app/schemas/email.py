@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from typing import Optional
 from datetime import datetime
 from enum import Enum
@@ -55,6 +55,42 @@ class EmailRequest(BaseModel):
     )
     
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator(
+        "subject",
+        "from_address",
+        "envelope_from",
+        "reply_to",
+    )
+    @classmethod
+    def _reject_crlf_in_string_fields(cls, value):
+        if value is None:
+            return value
+        if "\r" in value or "\n" in value:
+            raise ValueError("CR/LF characters are not allowed")
+        return value
+
+    @field_validator("to", "cc", "bcc")
+    @classmethod
+    def _reject_crlf_in_address_lists(cls, value):
+        if value is None:
+            return value
+        for address in value:
+            if "\r" in address or "\n" in address:
+                raise ValueError("CR/LF characters are not allowed")
+        return value
+
+    @field_validator("headers")
+    @classmethod
+    def _reject_crlf_in_headers(cls, value):
+        if value is None:
+            return value
+        for header_name, header_value in value.items():
+            if "\r" in header_name or "\n" in header_name:
+                raise ValueError("CR/LF characters are not allowed")
+            if "\r" in header_value or "\n" in header_value:
+                raise ValueError("CR/LF characters are not allowed")
+        return value
 
 
 class EmailResponse(BaseModel):
