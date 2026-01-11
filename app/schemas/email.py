@@ -34,6 +34,15 @@ class EmailAttachment(BaseModel):
         description="Base64-encoded attachment content",
     )
 
+    @field_validator("filename")
+    @classmethod
+    def _validate_filename(cls, value: str) -> str:
+        if value in {".", ".."}:
+            raise ValueError("filename must not be a path traversal token")
+        if "/" in value or "\\" in value:
+            raise ValueError("filename must not contain path separators")
+        return value
+
     @field_validator("content_base64")
     @classmethod
     def _validate_content_base64(cls, value: str) -> str:
