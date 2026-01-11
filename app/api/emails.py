@@ -21,6 +21,13 @@ router = APIRouter(prefix="/api/v1/emails", tags=["emails"])
 async def get_authenticated_caller_id(
     x_caller_id: str = Header(..., alias="X-Caller-Id"),
 ) -> str:
+    """Return the caller id asserted by a trusted upstream.
+
+    This project currently treats `X-Caller-Id` as an authenticated identity
+    provided by a trusted upstream (e.g., API gateway/service mesh). For
+    internet-facing deployments, replace this with verified authentication
+    (JWT/API key) and derive the caller id from that identity.
+    """
     return x_caller_id
 
 
@@ -49,7 +56,7 @@ async def send_email(
     - **tags**: Optional tags for tracking
     - **caller_id**: Caller identifier for multi-tenant isolation
     - **idempotency_key**: Optional key to prevent duplicate submissions
-    - **X-Caller-Id**: Authenticated caller identifier header (must match caller_id)
+    - **X-Caller-Id**: Caller identifier header (must be set by a trusted upstream and match caller_id)
     """
     try:
         if email_request.caller_id != authenticated_caller_id:
