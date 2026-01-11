@@ -820,8 +820,7 @@ async def test_get_by_idempotency_key_returns_none_for_nonexistent(db_session):
     assert result is None
 
 
-@pytest.mark.asyncio
-async def test_parse_stored_addresses_with_list(db_session):
+def test_parse_stored_addresses_with_list():
     """Test _parse_stored_addresses handles list input"""
     email_service = EmailService()
     
@@ -833,8 +832,7 @@ async def test_parse_stored_addresses_with_list(db_session):
     assert result == ["addr1@example.com", "addr2@example.com"]
 
 
-@pytest.mark.asyncio
-async def test_parse_stored_addresses_with_json_string(db_session):
+def test_parse_stored_addresses_with_json_string():
     """Test _parse_stored_addresses handles JSON string input"""
     email_service = EmailService()
     
@@ -846,8 +844,7 @@ async def test_parse_stored_addresses_with_json_string(db_session):
     assert result == ["addr1@example.com", "addr2@example.com"]
 
 
-@pytest.mark.asyncio
-async def test_parse_stored_addresses_with_none(db_session):
+def test_parse_stored_addresses_with_none():
     """Test _parse_stored_addresses handles None input"""
     email_service = EmailService()
     
@@ -859,8 +856,7 @@ async def test_parse_stored_addresses_with_none(db_session):
     assert result == []
 
 
-@pytest.mark.asyncio
-async def test_parse_stored_addresses_with_invalid_json(db_session):
+def test_parse_stored_addresses_with_invalid_json():
     """Test _parse_stored_addresses handles invalid JSON"""
     email_service = EmailService()
     
