@@ -151,10 +151,20 @@ async def get_email_status(
             )
             # Fall back to a safe default - use empty list
             parsed_to = []
+
+        try:
+            email_status = EmailStatus(email.status)
+        except ValueError:
+            logger.warning(
+                "Unknown email status '%s' for email %s; falling back to failed",
+                email.status,
+                email.id,
+            )
+            email_status = EmailStatus.FAILED
         
         return EmailStatusResponse(
             email_id=email.id,
-            status=EmailStatus(email.status),
+            status=email_status,
             from_address=email.from_address,
             envelope_from=email.envelope_from,
             to=parsed_to,

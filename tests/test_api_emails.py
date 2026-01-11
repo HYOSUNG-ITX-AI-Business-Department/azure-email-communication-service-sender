@@ -269,6 +269,41 @@ async def test_get_email_status_success():
 
 
 @pytest.mark.asyncio
+async def test_get_email_status_unknown_status_falls_back_to_failed():
+    """Test email status handles unknown status values gracefully"""
+    mock_email = EmailRecord(
+        id="test-email-id",
+        caller_id="test-caller",
+        from_address="sender@yourdomain.com",
+        envelope_from="sender@yourdomain.com",
+        to_addresses=["recipient@example.com"],
+        subject="Test Subject",
+        body="Test Body",
+        status="unknown-status",
+        retry_count=1,
+        error_message=None,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        sent_at=datetime.now(timezone.utc),
+        smtp_auth_profile_id=None,
+        is_html=0,
+    )
+
+    with patch("app.api.emails.email_service.get_by_id", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_email
+
+        async with get_test_client() as client:
+            response = await client.get(
+                "/api/v1/emails/test-email-id",
+                headers={"X-Caller-Id": "test-caller"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["status"] == EmailStatus.FAILED.value
+
+
+@pytest.mark.asyncio
 async def test_get_email_status_caller_id_mismatch():
     """Test email status retrieval is caller-scoped"""
     mock_email = EmailRecord(
