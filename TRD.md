@@ -36,6 +36,7 @@
 - Idempotency:
   - Per-caller: composite uniqueness on `caller_id + idempotency_key`.
   - Avoids duplicate enqueue on idempotency replay by queueing only when status is `pending`.
+  - Known limitation: near-simultaneous requests may both enqueue before the record transitions out of `pending`; see Production Considerations for mitigations.
 
 ### `GET /api/v1/emails/{email_id}`
 
