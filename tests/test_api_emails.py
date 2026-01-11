@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock, ANY
 from fastapi import status
 from httpx import AsyncClient, ASGITransport
 from app.main import app
@@ -62,7 +62,7 @@ async def test_send_email_success():
         assert "message" in data
         
         mock_create.assert_awaited_once()
-        mock_update.assert_awaited_once()
+        mock_update.assert_awaited_once_with(ANY, "test-email-id", EmailStatus.QUEUED)
         mock_enqueue.assert_awaited_once_with("test-email-id")
 
 
