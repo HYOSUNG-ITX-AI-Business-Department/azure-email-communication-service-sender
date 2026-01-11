@@ -36,7 +36,7 @@ class EmailRequest(BaseModel):
     bcc: Optional[list[EmailStr]] = Field(None, description="BCC addresses")
     subject: str = Field(..., description="Email subject")
     body: str = Field(..., description="Email body (plain text or HTML)")
-    html: Optional[bool] = Field(default=False, description="Whether body is HTML")
+    html: bool = Field(default=False, description="Whether body is HTML")
     reply_to: Optional[EmailStr] = Field(None, description="Reply-To address")
     attachments: Optional[list[EmailAttachment]] = Field(
         None,

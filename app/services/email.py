@@ -91,7 +91,7 @@ class EmailService:
             and stored_attachments == request_attachments
             and existing.subject == email_request.subject
             and existing.body == email_request.body
-            and bool(existing.is_html) == bool(email_request.html)
+            and bool(existing.is_html) == email_request.html
         )
     
     def validate_envelope_from(self, envelope_from: str) -> bool:
