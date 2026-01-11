@@ -61,7 +61,7 @@ class EmailService:
     def _normalize_addresses(self, addresses: list[str] | None) -> list[str]:
         if addresses is None:
             return []
-        return [address.lower() for address in addresses]
+        return [address.strip().lower() for address in addresses]
 
     def _normalize_headers(
         self,
@@ -81,7 +81,7 @@ class EmailService:
             # Normalize missing lists to empty so omission and [] are equivalent.
             return []
         if isinstance(raw_addresses, list):
-            return [address.lower() for address in raw_addresses]
+            return self._normalize_addresses(raw_addresses)
         try:
             parsed = json.loads(raw_addresses)
         except (json.JSONDecodeError, TypeError) as exc:
@@ -100,7 +100,7 @@ class EmailService:
             )
             raise StoredPayloadParseError(email_id, field_name)
 
-        return [address.lower() for address in parsed]
+        return self._normalize_addresses(parsed)
 
     def _payload_matches(
         self,
@@ -165,8 +165,8 @@ class EmailService:
     def validate_envelope_from(self, envelope_from: str) -> bool:
         """Validate that envelope_from is in allowed list"""
         allowed = settings.get_allowed_mailfrom_list()
-        allowed_normalized = {address.lower() for address in allowed}
-        return envelope_from.lower() in allowed_normalized
+        allowed_normalized = {address.strip().lower() for address in allowed}
+        return envelope_from.strip().lower() in allowed_normalized
 
     def _parse_stored_json(
         self,
