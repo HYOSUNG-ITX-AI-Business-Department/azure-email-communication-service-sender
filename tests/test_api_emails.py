@@ -1,13 +1,20 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi import status
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from app.main import app
 from app.schemas.email import EmailStatus, EmailRequest
 from app.services.email import IdempotencyPayloadMismatchError
 from app.models.email import EmailRecord
 from datetime import datetime, timezone
 import json
+
+
+def get_test_client() -> AsyncClient:
+    return AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    )
 
 
 @pytest.mark.asyncio
@@ -35,7 +42,7 @@ async def test_send_email_success():
         mock_create.return_value = mock_email_record
         mock_update.return_value = mock_email_record
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
                 json={
@@ -62,7 +69,7 @@ async def test_send_email_success():
 @pytest.mark.asyncio
 async def test_send_email_caller_id_mismatch():
     """Test email submission fails when caller_id doesn't match X-Caller-Id"""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with get_test_client() as client:
         response = await client.post(
             "/api/v1/emails/",
             json={
@@ -82,7 +89,7 @@ async def test_send_email_caller_id_mismatch():
 @pytest.mark.asyncio
 async def test_send_email_missing_caller_id_header():
     """Test email submission fails without X-Caller-Id header"""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with get_test_client() as client:
         response = await client.post(
             "/api/v1/emails/",
             json={
@@ -103,7 +110,7 @@ async def test_send_email_idempotency_conflict():
     with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create:
         mock_create.side_effect = IdempotencyPayloadMismatchError("Payload mismatch")
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
                 json={
@@ -127,7 +134,7 @@ async def test_send_email_validation_error():
     with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create:
         mock_create.side_effect = ValueError("Invalid envelope_from")
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
                 json={
@@ -150,7 +157,7 @@ async def test_send_email_internal_error():
     with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create:
         mock_create.side_effect = Exception("Database connection failed")
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
                 json={
@@ -198,7 +205,7 @@ async def test_send_email_with_all_fields():
         mock_create.return_value = mock_email_record
         mock_update.return_value = mock_email_record
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
                 json={
@@ -247,7 +254,7 @@ async def test_get_email_status_success():
     with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_email
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/test-email-id",
                 headers={"X-Caller-Id": "test-caller"},
@@ -285,7 +292,7 @@ async def test_get_email_status_caller_id_mismatch():
     with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_email
 
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/test-email-id",
                 headers={"X-Caller-Id": "caller-b"},
@@ -300,7 +307,7 @@ async def test_get_email_status_not_found():
     with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
         mock_get.return_value = None
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/nonexistent-id",
                 headers={"X-Caller-Id": "test-caller"},
@@ -332,7 +339,7 @@ async def test_get_email_status_with_json_string_addresses():
     with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_email
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/test-email-id",
                 headers={"X-Caller-Id": "test-caller"},
@@ -366,7 +373,7 @@ async def test_get_email_status_with_corrupted_addresses():
     with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_email
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/test-email-id",
                 headers={"X-Caller-Id": "test-caller"},
@@ -388,7 +395,7 @@ async def test_get_queue_stats_success():
         mock_processing.return_value = 5
         mock_dlq.return_value = 2
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.get("/api/v1/emails/")
         
         assert response.status_code == status.HTTP_200_OK
@@ -404,7 +411,7 @@ async def test_get_queue_stats_error():
     with patch('app.api.emails.queue_service.get_queue_size', new_callable=AsyncMock) as mock_queue:
         mock_queue.side_effect = Exception("Redis connection failed")
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.get("/api/v1/emails/")
         
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -413,7 +420,7 @@ async def test_get_queue_stats_error():
 @pytest.mark.asyncio
 async def test_root_endpoint():
     """Test root endpoint returns service info"""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with get_test_client() as client:
         response = await client.get("/")
     
     assert response.status_code == status.HTTP_200_OK
@@ -426,7 +433,7 @@ async def test_root_endpoint():
 @pytest.mark.asyncio
 async def test_health_check_endpoint():
     """Test health check endpoint"""
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    async with get_test_client() as client:
         response = await client.get("/health")
     
     assert response.status_code == status.HTTP_200_OK
@@ -464,7 +471,7 @@ async def test_send_email_with_attachments():
         mock_create.return_value = mock_email_record
         mock_update.return_value = mock_email_record
         
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
                 json={
