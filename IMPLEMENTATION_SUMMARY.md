@@ -70,7 +70,10 @@ Client → REST API (FastAPI) → PostgreSQL Database
 1. `POST /api/v1/emails/` - Submit email for sending
 2. `GET /api/v1/emails/{email_id}` - Check email status
 3. `GET /api/v1/emails/` - Get queue statistics
-4. `GET /health` - Health check
+4. `GET /health` - Dependency health check
+5. `GET /healthz` - Liveness check
+6. `GET /ready` - Readiness check
+7. `GET /readyz` - Readiness check (alias)
 
 ## Email Status Flow
 
