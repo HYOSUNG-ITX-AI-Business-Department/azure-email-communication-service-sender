@@ -85,7 +85,7 @@ class EmailRequest(BaseModel):
         "reply_to",
     )
     @classmethod
-    def _reject_crlf_in_string_fields(cls, value):
+    def _reject_crlf_in_string_fields(cls, value: str | None) -> str | None:
         if value is None:
             return value
         if "\r" in value or "\n" in value:
@@ -94,7 +94,9 @@ class EmailRequest(BaseModel):
 
     @field_validator("to", "cc", "bcc")
     @classmethod
-    def _reject_crlf_in_address_lists(cls, value):
+    def _reject_crlf_in_address_lists(
+        cls, value: list[str] | None
+    ) -> list[str] | None:
         if value is None:
             return value
         for address in value:
@@ -104,7 +106,9 @@ class EmailRequest(BaseModel):
 
     @field_validator("headers")
     @classmethod
-    def _reject_crlf_in_headers(cls, value):
+    def _reject_crlf_in_headers(
+        cls, value: dict[str, str] | None
+    ) -> dict[str, str] | None:
         if value is None:
             return value
         for header_name, header_value in value.items():
