@@ -78,7 +78,26 @@ async def send_email(
         )
         
         # Add to queue
-        await queue_service.enqueue(email_record.id)
+        try:
+            await queue_service.enqueue(email_record.id)
+        except Exception as err:
+            logger.exception("Failed to enqueue email %s", email_record.id)
+            try:
+                await email_service.update_status(
+                    db,
+                    email_record.id,
+                    EmailStatus.FAILED,
+                    error_message="Failed to enqueue email for sending",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to mark email %s as failed after enqueue error",
+                    email_record.id,
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to submit email",
+            ) from err
         
         logger.info("Email %s submitted successfully", email_record.id)
         

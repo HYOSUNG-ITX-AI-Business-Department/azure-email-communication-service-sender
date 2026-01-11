@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock, ANY
+from unittest.mock import AsyncMock, patch, MagicMock, ANY, call
 from fastapi import status
 from httpx import AsyncClient, ASGITransport
 from app.main import app
@@ -171,6 +171,66 @@ async def test_send_email_internal_error():
             )
         
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+@pytest.mark.asyncio
+async def test_send_email_enqueue_failure_marks_failed():
+    """Test enqueue failure updates status to FAILED"""
+    mock_email_record = EmailRecord(
+        id="test-email-id",
+        caller_id="test-caller",
+        from_address="sender@yourdomain.com",
+        envelope_from="sender@yourdomain.com",
+        to_addresses=["recipient@example.com"],
+        subject="Test Subject",
+        body="Test Body",
+        status=EmailStatus.PENDING.value,
+        retry_count=0,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        audit_log=[],
+    )
+
+    with patch(
+        "app.api.emails.email_service.create_email",
+        new_callable=AsyncMock,
+    ) as mock_create, patch(
+        "app.api.emails.email_service.update_status",
+        new_callable=AsyncMock,
+    ) as mock_update, patch(
+        "app.api.emails.queue_service.enqueue",
+        new_callable=AsyncMock,
+    ) as mock_enqueue:
+        mock_create.return_value = mock_email_record
+        mock_update.return_value = mock_email_record
+        mock_enqueue.side_effect = Exception("Redis connection failed")
+
+        async with get_test_client() as client:
+            response = await client.post(
+                "/api/v1/emails/",
+                json={
+                    "from": "sender@yourdomain.com",
+                    "to": ["recipient@example.com"],
+                    "subject": "Test Subject",
+                    "body": "Test Body",
+                    "caller_id": "test-caller",
+                },
+                headers={"X-Caller-Id": "test-caller"},
+            )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        mock_enqueue.assert_awaited_once_with("test-email-id")
+        mock_update.assert_has_awaits(
+            [
+                call(ANY, "test-email-id", EmailStatus.QUEUED),
+                call(
+                    ANY,
+                    "test-email-id",
+                    EmailStatus.FAILED,
+                    error_message="Failed to enqueue email for sending",
+                ),
+            ]
+        )
 
 
 @pytest.mark.asyncio
