@@ -37,7 +37,7 @@ def _patch_worker_settings(
     *,
     max_retries: int = 3,
     retry_delay_seconds: int = 10,
-    max_retry_delay_seconds: int = 0,
+    max_retry_delay_seconds: int = 3600,
     retry_delay_jitter_seconds: int = 0,
 ) -> None:
     monkeypatch.setattr(
