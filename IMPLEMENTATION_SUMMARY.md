@@ -36,7 +36,7 @@ Implemented an Azure Email Communication Service Sender with a REST API and back
 
 ### 5. Reliability Features
 
-- ✅ **Idempotency**: Optional idempotency keys prevent duplicate submissions
+- ✅ **Idempotency**: Per-caller idempotency keys (composite unique constraint on caller_id + idempotency_key) prevent duplicate submissions
 - ✅ **Retry Logic**: Automatic retry with exponential backoff
 - ✅ **Dead Letter Queue**: Failed messages moved to DLQ after max retries
 - ✅ **Status Checking**: GET endpoint to query email delivery status
