@@ -31,6 +31,26 @@ def _make_email(**overrides: Any) -> SimpleNamespace:
     return SimpleNamespace(**defaults)
 
 
+def _patch_worker_settings(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    max_retries: int = 3,
+    retry_delay_seconds: int = 10,
+    max_retry_delay_seconds: int = 0,
+    retry_delay_jitter_seconds: int = 0,
+) -> None:
+    monkeypatch.setattr(
+        worker,
+        "settings",
+        SimpleNamespace(
+            max_retries=max_retries,
+            retry_delay_seconds=retry_delay_seconds,
+            max_retry_delay_seconds=max_retry_delay_seconds,
+            retry_delay_jitter_seconds=retry_delay_jitter_seconds,
+        ),
+    )
+
+
 @pytest.mark.asyncio
 async def test_process_email_marks_sent(monkeypatch):
     email = _make_email()
@@ -50,8 +70,7 @@ async def test_process_email_marks_sent(monkeypatch):
     monkeypatch.setattr(worker, "email_service", email_service)
     monkeypatch.setattr(worker, "queue_service", queue_service)
     monkeypatch.setattr(worker, "smtp_service", smtp_service)
-    monkeypatch.setattr(worker.settings, "max_retries", 3)
-    monkeypatch.setattr(worker.settings, "retry_delay_seconds", 10)
+    _patch_worker_settings(monkeypatch)
 
     result = await worker.process_email(AsyncMock(), "email-1")
 
@@ -84,8 +103,7 @@ async def test_process_email_permanent_smtp_error_moves_to_dlq(monkeypatch):
     monkeypatch.setattr(worker, "email_service", email_service)
     monkeypatch.setattr(worker, "queue_service", queue_service)
     monkeypatch.setattr(worker, "smtp_service", smtp_service)
-    monkeypatch.setattr(worker.settings, "max_retries", 3)
-    monkeypatch.setattr(worker.settings, "retry_delay_seconds", 10)
+    _patch_worker_settings(monkeypatch)
 
     result = await worker.process_email(AsyncMock(), "email-1")
 
@@ -119,8 +137,7 @@ async def test_process_email_transient_smtp_error_requeues(monkeypatch):
     monkeypatch.setattr(worker, "email_service", email_service)
     monkeypatch.setattr(worker, "queue_service", queue_service)
     monkeypatch.setattr(worker, "smtp_service", smtp_service)
-    monkeypatch.setattr(worker.settings, "max_retries", 3)
-    monkeypatch.setattr(worker.settings, "retry_delay_seconds", 10)
+    _patch_worker_settings(monkeypatch)
 
     result = await worker.process_email(AsyncMock(), "email-1")
 
@@ -150,8 +167,7 @@ async def test_process_email_operational_error_requeues(monkeypatch):
     monkeypatch.setattr(worker, "email_service", email_service)
     monkeypatch.setattr(worker, "queue_service", queue_service)
     monkeypatch.setattr(worker, "smtp_service", smtp_service)
-    monkeypatch.setattr(worker.settings, "max_retries", 3)
-    monkeypatch.setattr(worker.settings, "retry_delay_seconds", 10)
+    _patch_worker_settings(monkeypatch)
 
     result = await worker.process_email(AsyncMock(), "email-1")
 
@@ -180,8 +196,7 @@ async def test_process_email_operational_error_moves_to_dlq(monkeypatch):
     monkeypatch.setattr(worker, "email_service", email_service)
     monkeypatch.setattr(worker, "queue_service", queue_service)
     monkeypatch.setattr(worker, "smtp_service", smtp_service)
-    monkeypatch.setattr(worker.settings, "max_retries", 3)
-    monkeypatch.setattr(worker.settings, "retry_delay_seconds", 10)
+    _patch_worker_settings(monkeypatch)
 
     result = await worker.process_email(AsyncMock(), "email-1")
 

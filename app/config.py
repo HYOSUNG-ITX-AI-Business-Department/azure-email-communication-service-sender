@@ -1,6 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
-from typing import Any
 
 
 class Settings(BaseSettings):
@@ -76,11 +75,11 @@ def get_settings() -> Settings:
 
 
 class _SettingsProxy:
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         return getattr(get_settings(), name)
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        setattr(get_settings(), name, value)
+    def __setattr__(self, name: str, value: object) -> None:
+        raise AttributeError("Settings are read-only; use environment variables")
 
     def __repr__(self) -> str:
         return repr(get_settings())
