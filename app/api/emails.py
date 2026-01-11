@@ -8,7 +8,11 @@ from app.schemas.email import (
     EmailStatus,
     QueueStatsResponse,
 )
-from app.services.email import email_service, IdempotencyPayloadMismatchError
+from app.services.email import (
+    IdempotencyPayloadMismatchError,
+    IdempotencyStoredPayloadCorruptionError,
+    email_service,
+)
 from app.services.queue import queue_service
 import json
 import logging
@@ -87,23 +91,29 @@ async def send_email(
         
     except HTTPException:
         raise
+    except IdempotencyStoredPayloadCorruptionError as err:
+        logger.exception("Idempotency stored payload corruption")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(err),
+        ) from err
     except IdempotencyPayloadMismatchError as err:
         logger.exception("Idempotency payload mismatch")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(err)
+            detail=str(err),
         ) from err
     except ValueError as err:
         logger.exception("Validation error")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(err)
+            detail=str(err),
         ) from err
     except Exception as err:
         logger.exception("Error submitting email")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to submit email"
+            detail="Failed to submit email",
         ) from err
 
 
