@@ -912,6 +912,9 @@ async def test_create_email_creates_audit_log(db_session):
         email = await email_service.create_email(db_session, request)
         
         assert email.audit_log is not None
-        assert len(email.audit_log) == 1
-        assert email.audit_log[0]["status"] == EmailStatus.PENDING.value
-        assert "timestamp" in email.audit_log[0]
+        audit_entries = email.audit_log
+        if isinstance(audit_entries, str):
+            audit_entries = json.loads(audit_entries)
+        assert len(audit_entries) == 1
+        assert audit_entries[0]["status"] == EmailStatus.PENDING.value
+        assert "timestamp" in audit_entries[0]
