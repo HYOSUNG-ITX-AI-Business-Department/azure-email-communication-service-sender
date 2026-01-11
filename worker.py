@@ -72,7 +72,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             return False
         
         # Check if already sent
-        if email.status == EmailStatus.SENT:
+        if email.status == EmailStatus.SENT.value:
             logger.info("Email %s already sent, skipping", email_id)
             await queue_service.complete(email_id)
             return True
