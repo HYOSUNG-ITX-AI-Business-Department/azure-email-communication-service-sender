@@ -10,7 +10,7 @@ import worker
 from app.schemas.email import EmailStatus
 
 
-def _make_email(**overrides: Any) -> SimpleNamespace:
+def _make_email(**overrides: Any) -> SimpleNamespace:  # noqa: ANN401
     defaults = {
         "status": EmailStatus.PENDING,
         "retry_count": 0,
