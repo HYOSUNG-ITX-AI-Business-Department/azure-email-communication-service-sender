@@ -391,7 +391,7 @@ class EmailService:
         email.status = status.value
         email.updated_at = datetime.now(timezone.utc)
         
-        if error_message:
+        if error_message is not None:
             email.error_message = error_message
         
         if increment_retry:
@@ -405,7 +405,11 @@ class EmailService:
         audit_log.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": status.value,
-            "message": error_message or f"Status updated to {status.value}",
+            "message": (
+                error_message
+                if error_message is not None
+                else f"Status updated to {status.value}"
+            ),
             "retry_count": email.retry_count
         })
         email.audit_log = audit_log

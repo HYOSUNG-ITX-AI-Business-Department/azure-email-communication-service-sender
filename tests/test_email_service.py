@@ -748,6 +748,20 @@ async def test_update_status_increment_retry(db_session):
         assert updated.retry_count == 1
         assert updated.error_message == "SMTP error"
 
+        updated = await email_service.update_status(
+            db_session,
+            email.id,
+            EmailStatus.FAILED,
+            error_message="",
+        )
+        assert updated.error_message == ""
+        assert updated.retry_count == 1
+
+        audit_entries = updated.audit_log
+        if isinstance(audit_entries, str):
+            audit_entries = json.loads(audit_entries)
+        assert audit_entries[-1]["message"] == ""
+
 
 @pytest.mark.asyncio
 async def test_update_status_sets_sent_at(db_session):
