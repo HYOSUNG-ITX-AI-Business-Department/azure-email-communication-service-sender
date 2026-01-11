@@ -87,6 +87,7 @@ async def test_process_email_marks_sent(monkeypatch):
 @pytest.mark.asyncio
 async def test_process_email_permanent_smtp_error_moves_to_dlq(monkeypatch):
     email = _make_email()
+    monkeypatch.setattr(worker, "PERMANENT_SMTP_CODES", {550})
     email_service = SimpleNamespace(
         get_by_id=AsyncMock(return_value=email),
         update_status=AsyncMock(return_value=email),
