@@ -105,8 +105,8 @@ class EmailService:
         request_attachments = self._normalize_attachments(email_request.attachments)
 
         return (
-            existing.from_address == email_request.from_address
-            and existing.envelope_from == envelope_from
+            existing.from_address.lower() == email_request.from_address.lower()
+            and existing.envelope_from.lower() == envelope_from.lower()
             and existing.smtp_auth_profile_id == email_request.smtp_auth_profile_id
             and existing.reply_to == email_request.reply_to
             and stored_to == self._normalize_addresses(email_request.to)
