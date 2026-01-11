@@ -180,12 +180,15 @@ async def get_email_status(
 
 @router.get("/", response_model=QueueStatsResponse)
 async def get_queue_stats(
-    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
+    _authenticated_caller_id: str = Depends(get_authenticated_caller_id),
 ):
     """
     Get queue statistics
     
     Returns current queue sizes for monitoring.
+
+    The caller id dependency enforces an authenticated upstream identity.
+    Restrict access to this endpoint via an API gateway or network controls.
     """
     try:
         return {
