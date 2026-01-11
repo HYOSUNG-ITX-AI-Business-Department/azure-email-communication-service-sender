@@ -224,7 +224,7 @@ async def get_email_status(
             email_id=email.id,
             status=email_status,
             from_address=email.from_address,
-            envelope_from=email.envelope_from,
+            envelope_from=email.envelope_from or email.from_address,
             to=parsed_to,
             subject=email.subject,
             created_at=email.created_at,
