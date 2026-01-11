@@ -1,7 +1,9 @@
 # Azure Email Communication Service Sender — TRD
 
 ## Architecture
+
 ### Components
+
 - **Sender API (FastAPI)**: Validates requests, persists records, queues email ids.
 - **Worker (async loop)**: Dequeues ids, loads records from DB, sends via SMTP, updates status, requeues or DLQs as needed.
 - **Database (SQLAlchemy)**: Stores `EmailRecord` with status, retry count, timestamps, and audit log.
@@ -9,6 +11,7 @@
 - **SMTP Relay (ACS)**: Delivery backend via STARTTLS-authenticated SMTP.
 
 ### High-level Flow
+
 1. Client calls `POST /api/v1/emails/` with `X-Caller-Id` and payload.
 2. API validates tenant identity and persists an email record (`pending`).
 3. API transitions record to `queued` and enqueues the email id.
@@ -16,7 +19,9 @@
 5. Worker transitions to `sent` on success; on retryable errors, transitions to `failed`, increments retry, and requeues with delay; on permanent errors or retry exhaustion, transitions to `dlq` and moves to DLQ.
 
 ## REST API
+
 ### `POST /api/v1/emails/`
+
 - Purpose: Submit an email request.
 - Authentication/Authorization:
   - Requires `X-Caller-Id` header (trusted upstream identity).
@@ -26,21 +31,26 @@
   - Avoids duplicate enqueue on idempotency replay by queueing only when status is `pending`.
 
 ### `GET /api/v1/emails/{email_id}`
+
 - Purpose: Fetch status/details.
 - Authorization: Caller-scoped (`email.caller_id` must match `X-Caller-Id`).
 - Defensive parsing: stored `to_addresses` is normalized to `list[str]`, and unknown DB `status` falls back safely.
 
 ### `GET /api/v1/emails/` (Queue stats)
+
 - Purpose: Queue sizes for monitoring.
 - Authorization: Requires `X-Caller-Id` and `QUEUE_STATS_ALLOWED_CALLERS` allowlist.
 
 ### Health/Readiness
+
 - `/health`: dependency health (Redis + DB); returns 503 when unhealthy.
 - `/ready` and `/readyz`: readiness check with dependency status; returns 503 when not ready.
 - `/healthz`: liveness-only; always returns 200.
 
 ## Data Model
+
 ### `EmailRecord` (conceptual)
+
 - Identifiers:
   - `id` (uuid string)
   - `caller_id` (tenant identity)
@@ -61,13 +71,16 @@
   - `audit_log` (JSON list of status transitions)
 
 ## Queue Design (Redis/Valkey)
+
 ### Keys
+
 - `email:queue`: pending work (list)
 - `email:processing`: in-flight work (list; populated via `BLMOVE`)
 - `email:delayed`: delayed retry schedule (sorted set)
 - `email:dlq`: dead letter queue (list of JSON items)
 
 ### Startup Scripts
+
 `QueueService.connect()` registers Lua scripts used by:
 - Move to DLQ (atomic removal from processing + push to DLQ)
 - Requeue (atomic removal from processing + push to queue)
@@ -75,6 +88,7 @@
 - Move ready delayed items (ZSET → queue)
 
 ## Worker Behavior
+
 - Dequeue uses `BLMOVE(queue → processing)` for atomic handoff.
 - Before sending:
   - If record is missing, worker completes the queue item.
@@ -120,7 +134,16 @@ Key environment variables:
     - Add a per-email distributed lock and/or a stronger idempotent send guard in the worker (beyond “skip if sent”).
     - Consider an outbox/sweeper pattern to reconcile `queued` records and queue state.
 - Operations (recommended runbook topics):
-  - Monitoring/alerting: track queue sizes, send success/failure rate, retry/DLQ volume, dependency health, and latency; aggregate logs centrally.
-  - Backup/DR: define DB backup + restore testing; decide Redis persistence strategy (and what data loss is acceptable).
+  - Monitoring/alerting (examples; tune per environment):
+    - P1: DLQ size > 100, dependency health check failures > 2 minutes, database/Redis connectivity failures.
+    - P2: queue size > 1000 for > 5 minutes, send failure rate > 5% (5m rolling), p95 end-to-end latency > 30s.
+    - Track retry and DLQ write volume spikes, SMTP response codes, and worker crash/restart rate.
+    - Aggregate logs centrally (e.g., Azure Monitor, ELK).
+  - Backup/DR:
+    - DB: daily full backup + point-in-time recovery; rehearse restores.
+    - Redis persistence: prefer AOF for durability; document acceptable data-loss window (e.g., < 5 minutes) and a requeue/recovery procedure.
+  - Performance baselines and sizing:
+    - Measure throughput per worker (emails/sec) under realistic SMTP quotas and p95 latency.
+    - Example: if p95 SMTP send time is ~500ms, one worker ≈ 2 emails/sec; for 20 emails/sec, start with ~12 workers (2× headroom).
+    - Tune DB indexes, connection pooling, worker concurrency, and retry/backoff settings per environment.
   - API deployment: run multiple API instances behind a load balancer; ensure all instances share the same DB and Redis.
-  - Performance: tune DB indexes, connection pooling, worker concurrency, and retry/backoff settings per environment.
