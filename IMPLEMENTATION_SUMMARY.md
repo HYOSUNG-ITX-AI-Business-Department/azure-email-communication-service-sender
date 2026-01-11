@@ -143,10 +143,17 @@ MAX_RETRY_DELAY_SECONDS=0  # optional (default: 0 disables cap)
 RETRY_DELAY_JITTER_SECONDS=0  # optional (default: 0)
 API_HOST=127.0.0.1  # optional (default: 127.0.0.1; set 0.0.0.0 for containers)
 API_PORT=8000  # optional (default: 8000)
+QUEUE_STATS_ALLOWED_CALLERS=<comma-separated-caller-ids>  # required to enable /api/v1/emails/ queue stats
 DEBUG=false  # optional (true enables uvicorn reload)
 ```
 
 See `.env.example` for the full configuration.
+
+## Operational Requirements
+
+- **Redis Lua scripts**: `QueueService.connect()` registers Redis Lua scripts at startup (DLQ move, requeue, delayed requeue, and moving ready delayed items); Redis must allow script registration.
+- **Envelope policy**: When `envelope_from` is omitted, it defaults to `from` (aligned), and the resulting value must be in `ALLOWED_MAILFROM`.
+- **Health/readiness**: `/health` and `/ready` reflect Redis+DB availability and return 503 when unhealthy; `/healthz` is liveness-only (always 200).
 
 ## Conclusion
 
@@ -160,4 +167,4 @@ Implemented the core functionality from the problem statement, including:
 - ✅ Status checking, idempotency, retry, DLQ
 - ✅ Audit trail and observability
 
-The system can be deployed after environment-specific validation; for production, consider adding a migration strategy (the current DB setup uses SQLAlchemy `create_all`) and CI security scans.
+The system can be deployed after environment-specific validation; for production, run migrations (SQLAlchemy `create_all` is only used when `DEBUG=true`) and consider CI security scans.
