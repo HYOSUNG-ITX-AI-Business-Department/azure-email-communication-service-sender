@@ -59,7 +59,9 @@ class EmailService:
     """Service for email operations"""
 
     def _normalize_addresses(self, addresses: list[str] | None) -> list[str]:
-        return addresses if addresses is not None else []
+        if addresses is None:
+            return []
+        return [address.lower() for address in addresses]
 
     def _parse_stored_addresses(
         self,
@@ -71,7 +73,7 @@ class EmailService:
             # Normalize missing lists to empty so omission and [] are equivalent.
             return []
         if isinstance(raw_addresses, list):
-            return list(raw_addresses)
+            return [address.lower() for address in raw_addresses]
         try:
             parsed = json.loads(raw_addresses)
         except (json.JSONDecodeError, TypeError) as exc:
@@ -90,7 +92,7 @@ class EmailService:
             )
             raise StoredPayloadParseError(email_id, field_name)
 
-        return parsed
+        return [address.lower() for address in parsed]
 
     def _payload_matches(
         self,
@@ -126,11 +128,16 @@ class EmailService:
 
         request_attachments = self._normalize_attachments(email_request.attachments)
 
+        stored_reply_to = existing.reply_to.lower() if existing.reply_to else None
+        request_reply_to = (
+            email_request.reply_to.lower() if email_request.reply_to else None
+        )
+
         return (
             existing.from_address.lower() == email_request.from_address.lower()
             and existing.envelope_from.lower() == envelope_from.lower()
             and existing.smtp_auth_profile_id == email_request.smtp_auth_profile_id
-            and existing.reply_to == email_request.reply_to
+            and stored_reply_to == request_reply_to
             and stored_to == self._normalize_addresses(email_request.to)
             and stored_cc == self._normalize_addresses(email_request.cc)
             and stored_bcc == self._normalize_addresses(email_request.bcc)
