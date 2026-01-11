@@ -1,5 +1,12 @@
 # Azure Email Communication Service Sender — TRD
 
+> **Production readiness: NOT COMPLETE**
+>
+> Do not deploy to production until the following are implemented and validated:
+> - Processing visibility timeout + reaper (recovery of stuck `email:processing` items)
+> - Per-email distributed lock and/or stronger idempotent send guard
+> - DB↔queue reconciliation (outbox/sweeper) to prevent state divergence
+
 ## Architecture
 
 ### Components
