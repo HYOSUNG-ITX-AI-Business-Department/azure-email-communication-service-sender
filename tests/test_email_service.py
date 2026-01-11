@@ -474,6 +474,24 @@ async def test_create_email_with_attachments(db_session):
                 }
             )
 
+        with pytest.raises(ValidationError):
+            EmailRequest(
+                **{
+                    "from": "sender@yourdomain.com",
+                    "to": ["recipient@example.com"],
+                    "subject": "Test with Attachments",
+                    "body": "Test body",
+                    "caller_id": "service-a",
+                    "attachments": [
+                        {
+                            "filename": "evil\r\n.txt",
+                            "content_type": "text/plain",
+                            "content_base64": "Zg==",
+                        }
+                    ],
+                }
+            )
+
         too_many_attachments = [
             {"filename": f"file-{idx}.txt", "content_base64": "Zg=="}
             for idx in range(11)

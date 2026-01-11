@@ -37,6 +37,10 @@ class EmailAttachment(BaseModel):
     @field_validator("filename")
     @classmethod
     def _validate_filename(cls, value: str) -> str:
+        if "\r" in value or "\n" in value:
+            raise ValueError(  # noqa: TRY003
+                "filename must not contain CR/LF characters"
+            )
         if value in {".", ".."}:
             raise ValueError("filename must not be a path traversal token")  # noqa: TRY003
         if "/" in value or "\\" in value:
