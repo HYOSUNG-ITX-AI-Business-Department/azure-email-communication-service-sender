@@ -18,7 +18,7 @@
 ## REST API
 ### `POST /api/v1/emails/`
 - Purpose: Submit an email request.
-- AuthN/AuthZ:
+- Authentication/Authorization:
   - Requires `X-Caller-Id` header (trusted upstream identity).
   - Requires request `caller_id` to match `X-Caller-Id`.
 - Idempotency:
@@ -27,12 +27,12 @@
 
 ### `GET /api/v1/emails/{email_id}`
 - Purpose: Fetch status/details.
-- AuthZ: Caller-scoped (`email.caller_id` must match `X-Caller-Id`).
+- Authorization: Caller-scoped (`email.caller_id` must match `X-Caller-Id`).
 - Defensive parsing: stored `to_addresses` is normalized to `list[str]`, and unknown DB `status` falls back safely.
 
 ### `GET /api/v1/emails/` (Queue stats)
 - Purpose: Queue sizes for monitoring.
-- AuthZ: Requires `X-Caller-Id` and `QUEUE_STATS_ALLOWED_CALLERS` allowlist.
+- Authorization: Requires `X-Caller-Id` and `QUEUE_STATS_ALLOWED_CALLERS` allowlist.
 
 ### Health/Readiness
 - `/health`: dependency health (Redis + DB); returns 503 when unhealthy.
