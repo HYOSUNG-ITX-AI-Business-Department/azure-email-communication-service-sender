@@ -624,7 +624,7 @@ async def test_idempotency_integrity_error_returns_existing_record():
             self.rolled_back = True
 
         async def refresh(self, _obj) -> None:
-            raise AssertionError("refresh should not be called on IntegrityError path")
+            pytest.fail("refresh should not be called on IntegrityError path")
 
     db = FakeDB()
 
