@@ -40,6 +40,26 @@ app = FastAPI(
 app.include_router(emails.router)
 
 
+async def _dependency_checks() -> dict[str, bool]:
+    checks = {"redis": False, "database": False}
+
+    try:
+        if queue_service.redis_client is not None:
+            await queue_service.redis_client.ping()
+            checks["redis"] = True
+    except Exception:
+        logger.exception("Dependency check failed: redis")
+
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+        checks["database"] = True
+    except Exception:
+        logger.exception("Dependency check failed: database")
+
+    return checks
+
+
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -51,9 +71,22 @@ async def root():
 
 
 @app.get("/health")
-@app.get("/healthz")
 async def health_check():
     """Health check endpoint"""
+    checks = await _dependency_checks()
+    healthy = all(checks.values())
+    payload = {"status": "healthy" if healthy else "unhealthy", "checks": checks}
+    if healthy:
+        return payload
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=payload,
+    )
+
+
+@app.get("/healthz")
+async def liveness_check():
+    """Liveness check endpoint"""
     return {"status": "healthy"}
 
 
@@ -61,21 +94,7 @@ async def health_check():
 @app.get("/readyz")
 async def readiness_check():
     """Readiness check endpoint"""
-    checks = {"redis": False, "database": False}
-
-    try:
-        if queue_service.redis_client is not None:
-            await queue_service.redis_client.ping()
-            checks["redis"] = True
-    except Exception:
-        logger.exception("Readiness check failed: redis")
-
-    try:
-        async with AsyncSessionLocal() as db:
-            await db.execute(text("SELECT 1"))
-        checks["database"] = True
-    except Exception:
-        logger.exception("Readiness check failed: database")
+    checks = await _dependency_checks()
 
     ready = all(checks.values())
     payload = {"status": "ready" if ready else "not_ready", "checks": checks}

@@ -433,12 +433,33 @@ async def test_root_endpoint():
 @pytest.mark.asyncio
 async def test_health_check_endpoint():
     """Test health check endpoint"""
-    async with get_test_client() as client:
-        response = await client.get("/health")
-    
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, _exc_type, _exc, _tb):
+            return False
+
+        async def execute(self, _stmt):
+            return None
+
+    def fake_session_local():
+        return FakeSession()
+
+    fake_redis_client = MagicMock(ping=AsyncMock(return_value=True))
+
+    with patch("app.main.AsyncSessionLocal", new=fake_session_local), patch(
+        "app.main.queue_service.redis_client",
+        new=fake_redis_client,
+    ):
+        async with get_test_client() as client:
+            response = await client.get("/health")
+
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["status"] == "healthy"
+    assert data["checks"] == {"redis": True, "database": True}
 
 
 @pytest.mark.asyncio
