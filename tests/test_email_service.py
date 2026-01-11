@@ -180,6 +180,9 @@ def test_caller_id_is_required():
             }
         )
 
+
+def test_reject_crlf_in_subject():
+    """Test CR/LF characters are rejected in subject"""
     with pytest.raises(ValidationError):
         EmailRequest(
             **{
@@ -191,6 +194,9 @@ def test_caller_id_is_required():
             }
         )
 
+
+def test_reject_crlf_in_headers():
+    """Test CR/LF characters are rejected in headers"""
     with pytest.raises(ValidationError):
         EmailRequest(
             **{
