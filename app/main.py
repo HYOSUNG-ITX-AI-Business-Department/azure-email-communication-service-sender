@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
 from app.api import emails
+from app.config import settings
 from app.database import AsyncSessionLocal, init_db
 from app.services.queue import queue_service
 from sqlalchemy import text
@@ -15,7 +16,12 @@ async def lifespan(_app: FastAPI):
     """Startup and shutdown events"""
     # Startup
     logger.info("Starting up Azure Email Communication Service Sender")
-    await init_db()
+    if settings.debug:
+        await init_db()
+    else:
+        logger.info(
+            "Skipping init_db() schema auto-creation; run migrations before starting"
+        )
     await queue_service.connect()
     yield
     # Shutdown
@@ -102,7 +108,6 @@ async def readiness_check():
 
 if __name__ == "__main__":
     import uvicorn
-    from app.config import settings
     
     uvicorn.run(
         "app.main:app",
