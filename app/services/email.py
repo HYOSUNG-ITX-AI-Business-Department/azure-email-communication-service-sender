@@ -14,6 +14,32 @@ logger = logging.getLogger(__name__)
 class IdempotencyPayloadMismatchError(ValueError):
     """Raised when idempotency key is reused with different payload."""
 
+    default_message = "Idempotency key reuse with different payload"
+
+    def __init__(self, message: str | None = None) -> None:
+        super().__init__(message or self.default_message)
+
+
+class InvalidMailFromError(ValueError):
+    def __init__(self, envelope_from: str) -> None:
+        super().__init__(
+            f"envelope_from '{envelope_from}' is not in allowed MailFrom list"
+        )
+        self.envelope_from = envelope_from
+
+
+class HeadersNotAllowedError(ValueError):
+    def __init__(self, invalid_headers: list[str]) -> None:
+        normalized = sorted(invalid_headers)
+        super().__init__("Headers not allowed: " + ", ".join(normalized))
+        self.invalid_headers = normalized
+
+
+class EmailNotFoundError(ValueError):
+    def __init__(self, email_id: str) -> None:
+        super().__init__(f"Email {email_id} not found")
+        self.email_id = email_id
+
 
 class EmailService:
     """Service for email operations"""
@@ -152,9 +178,7 @@ class EmailService:
         
         # Validate envelope_from is in allowed list
         if not self.validate_envelope_from(envelope_from):
-            raise ValueError(
-                f"envelope_from '{envelope_from}' is not in allowed MailFrom list"
-            )
+            raise InvalidMailFromError(envelope_from)
         
         # Check idempotency per caller when a key is provided
         if email_request.idempotency_key:
@@ -163,9 +187,7 @@ class EmailService:
             )
             if existing:
                 if not self._payload_matches(existing, email_request, envelope_from):
-                    raise IdempotencyPayloadMismatchError(
-                        "Idempotency key reuse with different payload"
-                    )
+                    raise IdempotencyPayloadMismatchError()
                 logger.info(
                     "Duplicate request with idempotency key: %s for caller: %s",
                     email_request.idempotency_key,
@@ -192,10 +214,7 @@ class EmailService:
                 if header.lower() not in allowed_headers
             ]
             if invalid_headers:
-                raise ValueError(
-                    "Headers not allowed: "
-                    + ", ".join(sorted(invalid_headers))
-                )
+                raise HeadersNotAllowedError(invalid_headers)
 
         attachments_payload = self._normalize_attachments(email_request.attachments)
 
@@ -264,7 +283,7 @@ class EmailService:
         """Update email status with audit trail"""
         email = await self.get_by_id(db, email_id)
         if not email:
-            raise ValueError(f"Email {email_id} not found")
+            raise EmailNotFoundError(email_id)
         
         # Update status
         email.status = status.value
