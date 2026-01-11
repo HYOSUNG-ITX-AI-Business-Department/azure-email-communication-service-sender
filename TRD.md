@@ -94,8 +94,24 @@ Key environment variables:
 - API: `API_HOST`, `API_PORT`, `DEBUG` (also controls uvicorn reload and dev-only DB auto-creation)
 
 ## Production Considerations
+
 - Database schema management:
   - `init_db()` uses SQLAlchemy `create_all` and is only invoked when `DEBUG=true`.
   - Production should run migrations (e.g., Alembic) as part of deploy.
-- Scaling:
-  - Multiple workers can be run, but queue duplication and record state transitions must be considered carefully (distributed locking/outbox patterns may be added in future work).
+- Scaling and concurrency:
+  - Current behavior:
+    - Queue consumption uses atomic `BLMOVE(queue → processing)`, so two workers should not dequeue the same list item at the same time.
+    - The system is still effectively “at-least-once” overall if the same email id is enqueued multiple times (e.g., operator requeue or bugs), or if a worker crashes mid-flight.
+  - Known gaps / failure modes:
+    - No processing timeout/reaper: if a worker dies, ids can remain stuck in `email:processing` without automatic recovery.
+    - No per-email locking: if an email id appears twice, multiple workers may send it unless the handler is made idempotent.
+    - DB + queue are not transactional: status transitions and queue mutations can diverge during partial failures.
+  - Recommended mitigations:
+    - Add a processing reaper/visibility timeout mechanism, or move to a queue primitive with visibility timeouts (e.g., Redis Streams consumer groups) if needed.
+    - Add a per-email distributed lock and/or a stronger idempotent send guard in the worker (beyond “skip if sent”).
+    - Consider an outbox/sweeper pattern to reconcile `queued` records and queue state.
+- Operations (recommended runbook topics):
+  - Monitoring/alerting: track queue sizes, send success/failure rate, retry/DLQ volume, dependency health, and latency; aggregate logs centrally.
+  - Backup/DR: define DB backup + restore testing; decide Redis persistence strategy (and what data loss is acceptable).
+  - API deployment: run multiple API instances behind a load balancer; ensure all instances share the same DB and Redis.
+  - Performance: tune DB indexes, connection pooling, worker concurrency, and retry/backoff settings per environment.
