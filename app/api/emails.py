@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/v1/emails", tags=["emails"])
 
 
 async def get_authenticated_caller_id(
-    x_caller_id: str = Header(..., alias="X-Caller-Id"),
+    x_caller_id: str = Header(..., alias="X-Caller-Id"),  # noqa: B008
 ) -> str:
     """Return the caller id asserted by a trusted upstream.
 
@@ -50,8 +50,8 @@ async def get_authenticated_caller_id(
 @router.post("/", response_model=EmailResponse, status_code=status.HTTP_202_ACCEPTED)
 async def send_email(
     email_request: EmailRequest,
-    db: AsyncSession = Depends(get_db),
-    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    authenticated_caller_id: str = Depends(get_authenticated_caller_id),  # noqa: B008
 ):
     """
     Send an email
@@ -171,8 +171,8 @@ async def send_email(
 @router.get("/{email_id}", response_model=EmailStatusResponse)
 async def get_email_status(
     email_id: str,
-    db: AsyncSession = Depends(get_db),
-    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    authenticated_caller_id: str = Depends(get_authenticated_caller_id),  # noqa: B008
 ):
     """
     Get email status by ID
@@ -248,7 +248,7 @@ async def get_email_status(
 
 @router.get("/", response_model=QueueStatsResponse)
 async def get_queue_stats(
-    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
+    authenticated_caller_id: str = Depends(get_authenticated_caller_id),  # noqa: B008
 ):
     """
     Get queue statistics
