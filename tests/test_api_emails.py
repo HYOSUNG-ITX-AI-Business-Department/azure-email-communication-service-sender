@@ -386,6 +386,74 @@ async def test_get_email_status_with_json_string_addresses():
 
 
 @pytest.mark.asyncio
+async def test_get_email_status_with_json_string_single_address():
+    """Test email status handles JSON string scalar for to_addresses"""
+    mock_email = EmailRecord(
+        id="test-email-id",
+        caller_id="test-caller",
+        from_address="sender@yourdomain.com",
+        envelope_from="sender@yourdomain.com",
+        to_addresses='"recipient@example.com"',  # JSON string scalar
+        subject="Test Subject",
+        body="Test Body",
+        status=EmailStatus.SENT.value,
+        retry_count=0,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        sent_at=datetime.now(timezone.utc),
+        smtp_auth_profile_id=None,
+        is_html=0,
+    )
+
+    with patch("app.api.emails.email_service.get_by_id", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_email
+
+        async with get_test_client() as client:
+            response = await client.get(
+                "/api/v1/emails/test-email-id",
+                headers={"X-Caller-Id": "test-caller"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["to"] == ["recipient@example.com"]
+
+
+@pytest.mark.asyncio
+async def test_get_email_status_with_non_list_json_addresses():
+    """Test email status handles non-list JSON for to_addresses"""
+    mock_email = EmailRecord(
+        id="test-email-id",
+        caller_id="test-caller",
+        from_address="sender@yourdomain.com",
+        envelope_from="sender@yourdomain.com",
+        to_addresses='{"recipient":"example@example.com"}',  # JSON object
+        subject="Test Subject",
+        body="Test Body",
+        status=EmailStatus.SENT.value,
+        retry_count=0,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        sent_at=datetime.now(timezone.utc),
+        smtp_auth_profile_id=None,
+        is_html=0,
+    )
+
+    with patch("app.api.emails.email_service.get_by_id", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = mock_email
+
+        async with get_test_client() as client:
+            response = await client.get(
+                "/api/v1/emails/test-email-id",
+                headers={"X-Caller-Id": "test-caller"},
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["to"] == []
+
+
+@pytest.mark.asyncio
 async def test_get_email_status_with_corrupted_addresses():
     """Test email status handles corrupted to_addresses gracefully"""
     mock_email = EmailRecord(

@@ -140,10 +140,17 @@ async def get_email_status(
         # Parse to_addresses with error handling
         try:
             parsed_to = email.to_addresses
-            if isinstance(parsed_to, str):
-                parsed_to = json.loads(parsed_to)
             if parsed_to is None:
                 parsed_to = []
+            elif isinstance(parsed_to, str):
+                parsed_to = json.loads(parsed_to)
+
+            if isinstance(parsed_to, str):
+                parsed_to = [parsed_to]
+            elif not isinstance(parsed_to, list):
+                parsed_to = []
+
+            parsed_to = [item for item in parsed_to if isinstance(item, str)]
         except (json.JSONDecodeError, TypeError):
             logger.exception(
                 "Error parsing to_addresses for email %s",
