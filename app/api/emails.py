@@ -78,6 +78,8 @@ async def send_email(
             created_at=email_record.created_at
         )
         
+    except HTTPException:
+        raise
     except IdempotencyPayloadMismatchError as err:
         logger.exception("Idempotency payload mismatch")
         raise HTTPException(

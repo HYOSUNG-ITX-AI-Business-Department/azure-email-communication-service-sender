@@ -11,6 +11,7 @@ def setup_test_env():
             "SMTP_USERNAME",
             "SMTP_PASSWORD",
             "ALLOWED_MAILFROM",
+            "ALLOWED_HEADERS",
             "REDIS_URL",
             "DATABASE_URL",
         ]
@@ -19,6 +20,7 @@ def setup_test_env():
     os.environ["SMTP_USERNAME"] = "test@example.com"
     os.environ["SMTP_PASSWORD"] = "testpassword"
     os.environ["ALLOWED_MAILFROM"] = "sender@yourdomain.com,noreply@yourdomain.com"
+    os.environ["ALLOWED_HEADERS"] = "X-Custom-Header,X-Priority"
     os.environ["REDIS_URL"] = "redis://localhost:6379/1"
     os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 

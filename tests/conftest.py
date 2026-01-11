@@ -23,6 +23,7 @@ async def db_session():
     
     async with engine.connect() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.commit()
 
         trans = await conn.begin()
         AsyncSessionLocal = async_sessionmaker(

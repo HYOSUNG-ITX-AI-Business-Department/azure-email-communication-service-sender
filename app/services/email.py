@@ -283,7 +283,7 @@ class EmailService:
         audit_log = []
         if email.audit_log:
             if isinstance(email.audit_log, list):
-                audit_log = email.audit_log
+                audit_log = list(email.audit_log)
             else:
                 try:
                     audit_log = json.loads(email.audit_log)
