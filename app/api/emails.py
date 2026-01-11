@@ -132,13 +132,19 @@ async def send_email(
             detail=str(err),
         ) from err
     except IdempotencyPayloadMismatchError as err:
-        logger.warning("Idempotency payload mismatch", exc_info=False)
+        logger.warning(
+            "Idempotency payload mismatch",
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(err),
         ) from err
     except ValueError as err:
-        logger.warning("Validation error", exc_info=False)
+        logger.warning(
+            "Validation error",
+            exc_info=logger.isEnabledFor(logging.DEBUG),
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),
