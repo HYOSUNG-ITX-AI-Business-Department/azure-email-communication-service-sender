@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # Note: Production deployments should explicitly set API_HOST=0.0.0.0 via environment variable
     api_host: str = "127.0.0.1"
     api_port: int = 8000
+
+    # Admin/ops allowlist for queue stats endpoint (comma-separated caller ids)
+    queue_stats_allowed_callers: str = ""
     
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -91,6 +94,14 @@ class Settings(BaseSettings):
             )
 
         return headers
+
+    def get_queue_stats_allowed_callers_list(self) -> list[str]:
+        """Parse comma-separated queue stats allowlist."""
+        if not self.queue_stats_allowed_callers or not self.queue_stats_allowed_callers.strip():
+            return []
+
+        callers = [caller.strip() for caller in self.queue_stats_allowed_callers.split(",")]
+        return [caller for caller in callers if caller]
 
 
 @lru_cache

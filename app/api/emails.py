@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.config import settings
 from app.database import get_db
 from app.schemas.email import (
     EmailRequest,
@@ -230,7 +231,7 @@ async def get_email_status(
 
 @router.get("/", response_model=QueueStatsResponse)
 async def get_queue_stats(
-    _authenticated_caller_id: str = Depends(get_authenticated_caller_id),
+    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
 ):
     """
     Get queue statistics
@@ -238,14 +239,29 @@ async def get_queue_stats(
     Returns current queue sizes for monitoring.
 
     The caller id dependency enforces an authenticated upstream identity.
-    Restrict access to this endpoint via an API gateway or network controls.
+    Restrict access to this endpoint via an API gateway or network controls, and
+    configure `QUEUE_STATS_ALLOWED_CALLERS` to allow only admin/ops callers.
     """
+    allowed_callers = set(settings.get_queue_stats_allowed_callers_list())
+    if not allowed_callers:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Queue stats endpoint disabled",
+        )
+    if authenticated_caller_id not in allowed_callers:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        )
+
     try:
         return {
             "queue_size": await queue_service.get_queue_size(),
             "processing_size": await queue_service.get_processing_size(),
             "dlq_size": await queue_service.get_dlq_size()
         }
+    except HTTPException:
+        raise
     except Exception as err:
         logger.exception("Error getting queue stats")
         raise HTTPException(
