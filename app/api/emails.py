@@ -174,9 +174,9 @@ async def get_queue_stats():
             "processing_size": await queue_service.get_processing_size(),
             "dlq_size": await queue_service.get_dlq_size()
         }
-    except Exception:
+    except Exception as err:
         logger.exception("Error getting queue stats")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get queue statistics"
-        ) from None
+        ) from err
