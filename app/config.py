@@ -43,7 +43,11 @@ class Settings(BaseSettings):
     )
     
     def get_allowed_mailfrom_list(self) -> list[str]:
-        """Parse comma-separated allowed MailFrom addresses"""
+        """Parse comma-separated allowed MailFrom addresses.
+
+        Normalizes only the domain part to lowercase and preserves the local-part
+        (RFC 5321 section 2.3.11).
+        """
         if not self.allowed_mailfrom or not self.allowed_mailfrom.strip():
             raise ConfigurationError(
                 "ALLOWED_MAILFROM configuration is required and cannot be empty"
@@ -57,8 +61,19 @@ class Settings(BaseSettings):
             raise ConfigurationError(
                 "ALLOWED_MAILFROM must contain at least one valid email address"
             )
-        
-        return [addr.lower() for addr in addresses]
+
+        normalized: list[str] = []
+        for address in addresses:
+            local_part, separator, domain_part = address.rpartition("@")
+            local_part = local_part.strip()
+            domain_part = domain_part.strip()
+            if separator != "@" or not local_part or not domain_part:
+                raise ConfigurationError(
+                    "ALLOWED_MAILFROM entries must be in the form local@domain"
+                )
+            normalized.append(f"{local_part}@{domain_part.lower()}")
+
+        return normalized
 
     def get_allowed_headers_list(self) -> list[str]:
         """Parse comma-separated allowed custom headers"""

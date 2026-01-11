@@ -1,28 +1,27 @@
 import pytest
 from unittest.mock import patch
 from app.config import Settings, get_settings
-from pydantic import ValidationError
 
 
 def test_get_allowed_mailfrom_list_success():
     """Test parsing valid comma-separated MailFrom addresses"""
-    settings = Settings(allowed_mailfrom="addr1@example.com,addr2@example.com")
+    settings = Settings(allowed_mailfrom="Addr1@Example.com,addr2@EXAMPLE.com")
     addresses = settings.get_allowed_mailfrom_list()
-    assert addresses == ["addr1@example.com", "addr2@example.com"]
+    assert addresses == ["Addr1@example.com", "addr2@example.com"]
 
 
 def test_get_allowed_mailfrom_list_with_whitespace():
     """Test parsing MailFrom addresses with whitespace"""
-    settings = Settings(allowed_mailfrom=" addr1@example.com , addr2@example.com ")
+    settings = Settings(allowed_mailfrom=" Addr1@Example.com , addr2@EXAMPLE.com ")
     addresses = settings.get_allowed_mailfrom_list()
-    assert addresses == ["addr1@example.com", "addr2@example.com"]
+    assert addresses == ["Addr1@example.com", "addr2@example.com"]
 
 
 def test_get_allowed_mailfrom_list_single_address():
     """Test parsing single MailFrom address"""
-    settings = Settings(allowed_mailfrom="addr1@example.com")
+    settings = Settings(allowed_mailfrom="Addr1@Example.com")
     addresses = settings.get_allowed_mailfrom_list()
-    assert addresses == ["addr1@example.com"]
+    assert addresses == ["Addr1@example.com"]
 
 
 def test_get_allowed_mailfrom_list_empty_raises_error():
@@ -41,15 +40,21 @@ def test_get_allowed_mailfrom_list_whitespace_only_raises_error():
 
 def test_get_allowed_mailfrom_list_with_empty_entries():
     """Test MailFrom list filters out empty entries"""
-    settings = Settings(allowed_mailfrom="addr1@example.com,,addr2@example.com")
+    settings = Settings(allowed_mailfrom="Addr1@Example.com,,addr2@EXAMPLE.com")
     addresses = settings.get_allowed_mailfrom_list()
-    assert addresses == ["addr1@example.com", "addr2@example.com"]
+    assert addresses == ["Addr1@example.com", "addr2@example.com"]
 
 
 def test_get_allowed_mailfrom_list_all_empty_entries_raises_error():
     """Test all empty entries raises error"""
     settings = Settings(allowed_mailfrom=",,,")
     with pytest.raises(ValueError, match="at least one valid email address"):
+        settings.get_allowed_mailfrom_list()
+
+
+def test_get_allowed_mailfrom_list_invalid_entry_raises_error():
+    settings = Settings(allowed_mailfrom="not-an-email")
+    with pytest.raises(ValueError, match="must be in the form local@domain"):
         settings.get_allowed_mailfrom_list()
 
 
