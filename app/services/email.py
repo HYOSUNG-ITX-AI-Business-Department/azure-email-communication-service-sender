@@ -63,6 +63,14 @@ class EmailService:
             return []
         return [address.lower() for address in addresses]
 
+    def _normalize_headers(
+        self,
+        headers: dict[str, str] | None,
+    ) -> dict[str, str] | None:
+        if headers is None:
+            return None
+        return {key.lower(): value for key, value in headers.items()}
+
     def _parse_stored_addresses(
         self,
         raw_addresses: list[str] | str | None,
@@ -133,6 +141,12 @@ class EmailService:
             email_request.reply_to.lower() if email_request.reply_to else None
         )
 
+        if stored_headers is not None and not isinstance(stored_headers, dict):
+            return False
+
+        stored_headers_normalized = self._normalize_headers(stored_headers)
+        request_headers_normalized = self._normalize_headers(email_request.headers)
+
         return (
             existing.from_address.lower() == email_request.from_address.lower()
             and existing.envelope_from.lower() == envelope_from.lower()
@@ -141,7 +155,7 @@ class EmailService:
             and stored_to == self._normalize_addresses(email_request.to)
             and stored_cc == self._normalize_addresses(email_request.cc)
             and stored_bcc == self._normalize_addresses(email_request.bcc)
-            and stored_headers == email_request.headers
+            and stored_headers_normalized == request_headers_normalized
             and stored_tags == email_request.tags
             and stored_attachments == request_attachments
             and existing.subject == email_request.subject
