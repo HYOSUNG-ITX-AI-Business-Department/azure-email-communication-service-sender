@@ -41,6 +41,19 @@ class EmailNotFoundError(ValueError):
         self.email_id = email_id
 
 
+class StoredPayloadParseError(Exception):
+    def __init__(self, email_id: str, field_name: str) -> None:
+        super().__init__(
+            f"Invalid {field_name} JSON for email {email_id} while checking idempotency payload"
+        )
+        self.email_id = email_id
+        self.field_name = field_name
+
+
+class IdempotencyStoredPayloadCorruptionError(IdempotencyPayloadMismatchError):
+    default_message = "Idempotency key reuse with corrupted stored payload"
+
+
 class EmailService:
     """Service for email operations"""
 
@@ -52,21 +65,31 @@ class EmailService:
         raw_addresses: list[str] | str | None,
         email_id: str,
         field_name: str,
-    ) -> list[str] | None:
+    ) -> list[str]:
         if raw_addresses is None:
             # Normalize missing lists to empty so omission and [] are equivalent.
             return []
         if isinstance(raw_addresses, list):
-            return raw_addresses
+            return list(raw_addresses)
         try:
-            return json.loads(raw_addresses)
-        except (json.JSONDecodeError, TypeError):
+            parsed = json.loads(raw_addresses)
+        except (json.JSONDecodeError, TypeError) as exc:
             logger.exception(
                 "Invalid %s JSON for email %s while checking idempotency payload",
                 field_name,
                 email_id,
             )
-            return None
+            raise StoredPayloadParseError(email_id, field_name) from exc
+
+        if not isinstance(parsed, list):
+            logger.error(
+                "Invalid %s JSON for email %s while checking idempotency payload: expected list",
+                field_name,
+                email_id,
+            )
+            raise StoredPayloadParseError(email_id, field_name)
+
+        return parsed
 
     def _payload_matches(
         self,
@@ -83,8 +106,6 @@ class EmailService:
         stored_bcc = self._parse_stored_addresses(
             existing.bcc_addresses, existing.id, "bcc_addresses"
         )
-        if stored_to is None or stored_cc is None or stored_bcc is None:
-            return False
 
         stored_headers = self._parse_stored_json(
             existing.headers, existing.id, "headers"
@@ -210,7 +231,16 @@ class EmailService:
                 db, email_request.caller_id, email_request.idempotency_key
             )
             if existing:
-                if not self._payload_matches(existing, email_request, envelope_from):
+                try:
+                    payload_matches = self._payload_matches(
+                        existing,
+                        email_request,
+                        envelope_from,
+                    )
+                except StoredPayloadParseError as exc:
+                    raise IdempotencyStoredPayloadCorruptionError() from exc
+
+                if not payload_matches:
                     raise IdempotencyPayloadMismatchError()
                 logger.info(
                     "Duplicate request with idempotency key: %s for caller: %s",

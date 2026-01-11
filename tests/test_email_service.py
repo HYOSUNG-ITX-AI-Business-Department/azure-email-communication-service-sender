@@ -2,7 +2,11 @@ import json
 import pytest
 from unittest.mock import patch
 from pydantic import ValidationError
-from app.services.email import EmailService, IdempotencyPayloadMismatchError
+from app.services.email import (
+    EmailService,
+    IdempotencyPayloadMismatchError,
+    StoredPayloadParseError,
+)
 from app.schemas.email import EmailRequest, EmailStatus
 
 
@@ -799,12 +803,12 @@ async def test_parse_stored_addresses_with_invalid_json(db_session):
     """Test _parse_stored_addresses handles invalid JSON"""
     email_service = EmailService()
     
-    result = email_service._parse_stored_addresses(
-        "not-valid-json",
-        "email-id",
-        "to_addresses"
-    )
-    assert result is None
+    with pytest.raises(StoredPayloadParseError):
+        email_service._parse_stored_addresses(
+            "not-valid-json",
+            "email-id",
+            "to_addresses"
+        )
 
 
 @pytest.mark.asyncio
