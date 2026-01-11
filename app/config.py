@@ -2,6 +2,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
+class ConfigurationError(ValueError):
+    """Configuration validation error."""
+
+
 class Settings(BaseSettings):
     # SMTP Configuration
     smtp_host: str = "smtp.azurecomm.net"
@@ -41,21 +45,25 @@ class Settings(BaseSettings):
     def get_allowed_mailfrom_list(self) -> list[str]:
         """Parse comma-separated allowed MailFrom addresses"""
         if not self.allowed_mailfrom or not self.allowed_mailfrom.strip():
-            raise ValueError("ALLOWED_MAILFROM configuration is required and cannot be empty")
+            raise ConfigurationError(
+                "ALLOWED_MAILFROM configuration is required and cannot be empty"
+            )
         
         # Split, strip whitespace, and filter out empty/whitespace-only strings
         addresses = [addr.strip() for addr in self.allowed_mailfrom.split(",")]
         addresses = [addr for addr in addresses if addr]  # Filter out empty strings
         
         if not addresses:
-            raise ValueError("ALLOWED_MAILFROM must contain at least one valid email address")
+            raise ConfigurationError(
+                "ALLOWED_MAILFROM must contain at least one valid email address"
+            )
         
         return [addr.lower() for addr in addresses]
 
     def get_allowed_headers_list(self) -> list[str]:
         """Parse comma-separated allowed custom headers"""
         if not self.allowed_headers or not self.allowed_headers.strip():
-            raise ValueError(
+            raise ConfigurationError(
                 "ALLOWED_HEADERS configuration is required when headers are provided"
             )
 
@@ -63,7 +71,9 @@ class Settings(BaseSettings):
         headers = [header for header in headers if header]
 
         if not headers:
-            raise ValueError("ALLOWED_HEADERS must contain at least one header name")
+            raise ConfigurationError(
+                "ALLOWED_HEADERS must contain at least one header name"
+            )
 
         return headers
 
