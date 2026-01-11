@@ -177,11 +177,15 @@ class EmailService:
         if raw_audit_log is None:
             return []
         if isinstance(raw_audit_log, list):
+            # Copy to ensure SQLAlchemy detects JSON list updates.
             return list(raw_audit_log)
         if isinstance(raw_audit_log, str):
             try:
-                parsed = json.loads(raw_audit_log)
-                if isinstance(parsed, str):
+                # Decode at most twice to support legacy double-encoded JSON.
+                parsed: object = raw_audit_log
+                for _ in range(2):
+                    if not isinstance(parsed, str):
+                        break
                     parsed = json.loads(parsed)
             except (json.JSONDecodeError, TypeError):
                 logger.exception(
