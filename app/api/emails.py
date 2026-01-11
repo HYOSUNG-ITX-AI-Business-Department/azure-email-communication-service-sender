@@ -103,7 +103,8 @@ async def send_email(
 @router.get("/{email_id}", response_model=EmailStatusResponse)
 async def get_email_status(
     email_id: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    authenticated_caller_id: str = Depends(get_authenticated_caller_id),
 ):
     """
     Get email status by ID
@@ -113,7 +114,7 @@ async def get_email_status(
     try:
         email = await email_service.get_by_id(db, email_id)
         
-        if not email:
+        if not email or email.caller_id != authenticated_caller_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Email {email_id} not found"

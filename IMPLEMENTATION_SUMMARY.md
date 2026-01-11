@@ -80,7 +80,7 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 ## Testing
 
-- ✅ Unit tests for core components (137 tests)
+- ✅ Unit tests for core components (138 tests)
 - ✅ API endpoint tests included
 - ✅ Code review completed and feedback addressed
 - ✅ Security scan (CodeQL) completed - no vulnerabilities found
