@@ -145,7 +145,13 @@ async def test_process_email_transient_smtp_error_requeues(monkeypatch):
     result = await worker.process_email(AsyncMock(), "email-1")
 
     assert result is False
-    queue_service.requeue_delayed.assert_awaited_once()
+    expected_delay = worker.calculate_backoff_delay(
+        updated_email.retry_count,
+        worker.settings.retry_delay_seconds,
+        worker.settings.max_retry_delay_seconds,
+        worker.settings.retry_delay_jitter_seconds,
+    )
+    queue_service.requeue_delayed.assert_awaited_once_with("email-1", expected_delay)
     queue_service.move_to_dlq.assert_not_awaited()
     statuses = [call.args[2] for call in email_service.update_status.call_args_list]
     assert EmailStatus.FAILED in statuses
