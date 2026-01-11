@@ -1,7 +1,14 @@
+import base64
+import binascii
+
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from typing import Optional
 from datetime import datetime
 from enum import Enum
+
+MAX_ATTACHMENTS = 10
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MiB
+MAX_ATTACHMENT_BASE64_CHARS = 14_000_000
 
 
 class EmailStatus(str, Enum):
@@ -23,8 +30,22 @@ class EmailAttachment(BaseModel):
     content_base64: str = Field(
         ...,
         min_length=1,
+        max_length=MAX_ATTACHMENT_BASE64_CHARS,
         description="Base64-encoded attachment content",
     )
+
+    @field_validator("content_base64")
+    @classmethod
+    def _validate_content_base64(cls, value: str) -> str:
+        try:
+            decoded = base64.b64decode(value, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("content_base64 must be valid base64") from exc
+
+        if len(decoded) > MAX_ATTACHMENT_BYTES:
+            raise ValueError("content_base64 exceeds maximum allowed size")
+
+        return value
 
 
 class EmailRequest(BaseModel):
@@ -40,6 +61,7 @@ class EmailRequest(BaseModel):
     reply_to: Optional[EmailStr] = Field(None, description="Reply-To address")
     attachments: Optional[list[EmailAttachment]] = Field(
         None,
+        max_length=MAX_ATTACHMENTS,
         description="Email attachments",
     )
     headers: Optional[dict[str, str]] = Field(
