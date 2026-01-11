@@ -127,7 +127,9 @@ Key environment variables:
 
 - Database schema management:
   - `init_db()` uses SQLAlchemy `create_all` and is only invoked when `DEBUG=true`.
-  - Production should run migrations (e.g., Alembic) as part of deploy.
+  - Production must keep `DEBUG=false` and run migrations (e.g., Alembic) as part of deploy.
+  - Recommended: add a CI/CD gate that fails production deployments when `DEBUG=true`.
+  - Risk: accidentally deploying with `DEBUG=true` can cause unintended schema drift (auto-creating tables) and make migrations/rollbacks unsafe.
 - Scaling and concurrency:
   - Current behavior:
     - Queue consumption uses atomic `BLMOVE(queue → processing)`, so two workers should not dequeue the same list item at the same time.
