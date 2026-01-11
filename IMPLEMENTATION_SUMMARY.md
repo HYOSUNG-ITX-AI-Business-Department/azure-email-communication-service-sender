@@ -80,10 +80,9 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 ## Testing
 
-- ✅ Unit tests for core components (141 tests)
-- ✅ API endpoint tests included
-- ✅ Code review completed and feedback addressed
-- ✅ Security scan (CodeQL) completed - no vulnerabilities found
+- ✅ Unit + API test suite included (run `python -m pytest -q` for current status)
+- ✅ Code review feedback addressed in this PR
+- ✅ Recommend running security scans (e.g., CodeQL) in CI for your deployment context
 
 ## Key Implementation Details
 
@@ -99,16 +98,16 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 6. **Configuration**: All sensitive data and configurable parameters via environment variables
 
-## Production Readiness
+## Deployment Notes
 
-### Ready for Deployment
+### Deployment Checklist
 
 - ✅ Docker containerization
 - ✅ Environment-based configuration
 - ✅ Health checks
 - ✅ Structured logging
 - ✅ Error handling
-- ✅ Security (no vulnerabilities)
+- ✅ Security hardening (non-root container, input validation, allowlists)
 
 ### Future Enhancements (Optional)
 
@@ -154,4 +153,4 @@ All requirements from the problem statement have been successfully implemented:
 - ✅ Status checking, idempotency, retry, DLQ
 - ✅ Audit trail and observability
 
-The system is production-ready with comprehensive testing, documentation, and Docker support.
+The system is ready for deployment with tests, documentation, and Docker support; validate in your target environment and consider adding migrations and CI security scans.
