@@ -872,8 +872,7 @@ async def test_parse_stored_addresses_with_invalid_json(db_session):
         )
 
 
-@pytest.mark.asyncio
-async def test_normalize_attachments_with_none():
+def test_normalize_attachments_with_none():
     """Test _normalize_attachments handles None"""
     email_service = EmailService()
     
@@ -881,8 +880,7 @@ async def test_normalize_attachments_with_none():
     assert result is None
 
 
-@pytest.mark.asyncio
-async def test_normalize_attachments_with_list():
+def test_normalize_attachments_with_list():
     """Test _normalize_attachments converts attachments to dicts"""
     email_service = EmailService()
     from app.schemas.email import EmailAttachment
