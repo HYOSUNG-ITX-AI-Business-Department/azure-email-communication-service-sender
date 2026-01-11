@@ -10,10 +10,10 @@
 
 ### High-level Flow
 1. Client calls `POST /api/v1/emails/` with `X-Caller-Id` and payload.
-2. API validates tenant identity and persists an email record (`PENDING`).
-3. API transitions record to `QUEUED` and enqueues the email id.
-4. Worker dequeues id, loads record, transitions to `SENDING`, attempts SMTP send.
-5. Worker transitions to `SENT` on success; on retryable errors, transitions to `FAILED`, increments retry, and requeues with delay; on permanent errors or retry exhaustion, transitions to `DLQ` and moves to DLQ.
+2. API validates tenant identity and persists an email record (`pending`).
+3. API transitions record to `queued` and enqueues the email id.
+4. Worker dequeues id, loads record, transitions to `sending`, attempts SMTP send.
+5. Worker transitions to `sent` on success; on retryable errors, transitions to `failed`, increments retry, and requeues with delay; on permanent errors or retry exhaustion, transitions to `dlq` and moves to DLQ.
 
 ## REST API
 ### `POST /api/v1/emails/`
