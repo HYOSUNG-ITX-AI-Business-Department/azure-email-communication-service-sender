@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from aiosmtplib import SMTPResponseException
+from redis.exceptions import RedisError
 from sqlalchemy.exc import OperationalError
 
 import worker
@@ -204,3 +205,30 @@ async def test_process_email_operational_error_moves_to_dlq(monkeypatch):
     assert result is False
     queue_service.move_to_dlq.assert_awaited_once()
     queue_service.requeue_delayed.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_process_email_redis_error_propagates(monkeypatch):
+    email = _make_email()
+    email_service = SimpleNamespace(
+        get_by_id=AsyncMock(return_value=email),
+        update_status=AsyncMock(return_value=email),
+    )
+    queue_service = SimpleNamespace(
+        complete=AsyncMock(side_effect=RedisError("connection lost")),
+        move_to_dlq=AsyncMock(),
+        requeue_delayed=AsyncMock(),
+        increment_db_error_count=AsyncMock(return_value=1),
+        clear_db_error_count=AsyncMock(),
+    )
+    smtp_service = SimpleNamespace(send_email=AsyncMock())
+
+    monkeypatch.setattr(worker, "email_service", email_service)
+    monkeypatch.setattr(worker, "queue_service", queue_service)
+    monkeypatch.setattr(worker, "smtp_service", smtp_service)
+    _patch_worker_settings(monkeypatch)
+
+    with pytest.raises(RedisError):
+        await worker.process_email(AsyncMock(), "email-1")
+
+    queue_service.clear_db_error_count.assert_awaited_once_with("email-1")
