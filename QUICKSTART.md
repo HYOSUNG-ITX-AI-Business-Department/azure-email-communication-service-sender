@@ -62,7 +62,7 @@ Terminal 3 - Start Worker:
 python worker.py
 ```
 
-Access API documentation at: <http://localhost:8000/docs>
+Access API documentation at: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## Usage Examples
 
