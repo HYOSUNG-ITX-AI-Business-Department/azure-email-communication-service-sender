@@ -112,7 +112,6 @@ Client → REST API (FastAPI) → PostgreSQL Database
 
 ### Future Enhancements (Optional)
 
-- Implement delayed retry using Valkey/Redis sorted sets (ZADD) instead of immediate requeue
 - Add metrics/monitoring (Prometheus, Grafana)
 - Implement rate limiting
 - Add email templating system
