@@ -323,7 +323,14 @@ Key environment variables:
 
 ## Operational Runbook (Outline)
 
-> Tracked in Issue #8 and treated as a production blocker until completed.
+> Tracked in #8 and treated as a production blocker until completed.
+>
+> Completion checklist (fill in owners/links for your org):
+> - [ ] Backup policy (DB/Redis) defined with RPO/RTO targets
+> - [ ] Restore procedure documented and tested (at least monthly)
+> - [ ] Deploy/rollback plan documented (including DB migration rollback expectations)
+> - [ ] Escalation path defined for P1/P2 incidents (contacts + SLAs)
+> - [ ] Game day executed and runbook updated
 
 ### Common Failure Scenarios
 
@@ -340,6 +347,7 @@ Key environment variables:
     - Verify network connectivity to `smtp.azurecomm.net:587` (e.g., `nc -zv smtp.azurecomm.net 587` or `telnet smtp.azurecomm.net 587`), DNS resolution, and outbound firewall/proxy/NAT rules.
     - Review any ACS/infra IP allowlists and firewall rules if configured.
     - Verify TLS/cert trust on the runtime.
+    - Check Azure service health (https://status.azure.com/status) and open an Azure support ticket via Azure Portal if the issue is widespread.
 - DLQ spikes:
   - Signals: `email:dlq` grows rapidly; permanent SMTP errors (5xx) or retry exhaustion.
   - Actions: sample DLQ entries for root causes, fix configuration/payload issues, and requeue only after mitigating the underlying cause.
@@ -354,17 +362,29 @@ Key environment variables:
 
 ### Backup & Recovery
 
-- Database:
-  - Backups: define cadence and retention; validate restores regularly.
-  - Recovery: after restore, reconcile queued/failed records vs. Redis queue state (see Scaling and concurrency gaps).
-- Redis:
-  - Persistence: prefer AOF for durability; decide acceptable data-loss window and document recovery steps.
+- Database (recommended starting policy; tune per org):
+  - Backups: daily full backup (e.g., 02:00 UTC) with 7-day retention.
+  - PITR: enable point-in-time recovery; keep a 72-hour window (≤ 1-hour granularity).
+  - Restore procedure (template):
+    - Stop/scale down workers to prevent concurrent sends during recovery.
+    - Restore DB (backup or PITR), then verify basic connectivity via `/health`.
+    - Reconcile queued work vs. Redis (outbox/sweeper or manual requeue) before resuming processing.
+    - Restart workers and monitor DLQ size and failure rates.
+  - Validation: run a monthly restore test in staging.
+- Redis (recommended starting policy; tune per org):
+  - Persistence: AOF with `appendfsync everysec`.
+  - Targets: RPO < 5 minutes, RTO < 15 minutes.
+  - Recovery: restart Redis and repopulate missing work from DB (outbox/sweeper) or via the recovery commands below.
 
 ### Deploy & Rollback
 
 - Before deploy: ensure `DEBUG=false`, run migrations (Alembic), and validate `/health` and `/ready` in the target environment.
 - Deploy order: API first (stateless), then workers; roll out gradually while monitoring error rates and queue metrics.
-- Rollback: revert application versions; if migrations were applied, follow the DB rollback plan and verify schema compatibility.
+- Rollback (template):
+  - Revert application versions first (API + worker images).
+  - If DB migrations were applied: run a tested Alembic downgrade (preferred) or restore DB from backup/PITR.
+  - Verify `/health` and queue processing, then continue to monitor DLQ/failure rates.
+  - Requirement: each migration must have a tested downgrade path or an explicit restore procedure.
 
 ### Metrics, Dashboards, and Alerts
 
@@ -373,6 +393,12 @@ Key environment variables:
   - Queue metrics: track `email:queue`, `email:processing`, `email:dlq`, and `email:delayed` sizes.
 - Dashboards: maintain both SLO views (PRD Success Metrics) and operational views (queue sizes, latency, error codes).
 - Alerts: trigger on sustained SLO breaches and the Monitoring/alerting thresholds listed above; define P1/P2 escalation paths.
+
+### Escalation (Template)
+
+- P1 (Critical): page on-call immediately (PagerDuty/phone); escalate to the platform lead after 15 minutes if not mitigated.
+- P2 (Major): notify the platform channel; escalate to on-call after 60 minutes if not mitigated.
+- Vendor escalation: for ACS/SMTP-wide issues, open an Azure support ticket via Azure Portal and check service health at https://status.azure.com/status.
 
 ### Useful Commands (Categorized)
 
