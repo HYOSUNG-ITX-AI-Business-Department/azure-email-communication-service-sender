@@ -154,7 +154,11 @@
   - If record is missing, worker completes the queue item.
   - If status is `sent`, worker skips and completes.
 - Retry:
-  - `calculate_backoff_delay(retry_count, base_delay)` uses exponential backoff; optional max cap and jitter.
+  - `calculate_backoff_delay(retry_count, base_delay)` uses exponential backoff:
+    - Formula: `base_delay * (2 ** max(retry_count - 1, 0))` where `base_delay = RETRY_DELAY_SECONDS`.
+    - Cap: if `MAX_RETRY_DELAY_SECONDS > 0`, the computed delay is capped to that value.
+    - Jitter: if `RETRY_DELAY_JITTER_SECONDS > 0`, add a random `0..jitter` seconds.
+    - Example (defaults): `retry_count=1→60s`, `2→120s`, `3→240s` (+ optional jitter).
   - Worker schedules delayed requeue via `requeue_delayed(email_id, delay_seconds)`.
 - DLQ:
   - After `MAX_RETRIES`, move to DLQ and persist `DLQ` status with error reason.
