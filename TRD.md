@@ -197,10 +197,11 @@
   ```json
   {
     "type": "object",
-    "required": ["queue_size", "processing_size", "dlq_size"],
+    "required": ["queue_size", "processing_size", "delayed_size", "dlq_size"],
     "properties": {
       "queue_size": {"type": "integer"},
       "processing_size": {"type": "integer"},
+      "delayed_size": {"type": "integer"},
       "dlq_size": {"type": "integer"}
     }
   }
@@ -212,6 +213,7 @@
   {
     "queue_size": 12,
     "processing_size": 3,
+    "delayed_size": 1,
     "dlq_size": 0
   }
   ```

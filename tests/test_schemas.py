@@ -349,10 +349,12 @@ def test_queue_stats_response_valid():
     response = QueueStatsResponse(
         queue_size=10,
         processing_size=5,
+        delayed_size=3,
         dlq_size=2
     )
     assert response.queue_size == 10
     assert response.processing_size == 5
+    assert response.delayed_size == 3
     assert response.dlq_size == 2
 
 
@@ -361,10 +363,12 @@ def test_queue_stats_response_zero_values():
     response = QueueStatsResponse(
         queue_size=0,
         processing_size=0,
+        delayed_size=0,
         dlq_size=0
     )
     assert response.queue_size == 0
     assert response.processing_size == 0
+    assert response.delayed_size == 0
     assert response.dlq_size == 0
 
 

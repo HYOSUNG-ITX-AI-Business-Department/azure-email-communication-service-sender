@@ -222,4 +222,5 @@ class QueueStatsResponse(BaseModel):
     """Response model for queue stats"""
     queue_size: int
     processing_size: int
+    delayed_size: int
     dlq_size: int
