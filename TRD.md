@@ -243,6 +243,57 @@ Key environment variables:
     - Add a processing reaper/visibility timeout mechanism, or move to a queue primitive with visibility timeouts (e.g., Redis Streams consumer groups) if needed.
     - Add a per-email distributed lock and/or a stronger idempotent send guard in the worker (beyond “skip if sent”).
     - Consider an outbox/sweeper pattern to reconcile `queued` records and queue state.
+    - Implementation sketches (future work; copy-paste starting points):
+      - Processing reaper / visibility timeout (List + ZSET):
+        - Keys: `email:queue` (list), `email:processing` (list), `email:processing:vis` (zset with score=expiry epoch seconds).
+        - Worker flow: after dequeue, `ZADD email:processing:vis (now+timeout) <email_id>`; optionally refresh/heartbeat during long sends.
+        - Reaper flow: run every 30–60s and move expired ids back to `email:queue` using a Lua script.
+
+        ```lua
+        -- KEYS[1]=processing_list, KEYS[2]=queue_list, KEYS[3]=processing_vis_zset
+        -- ARGV[1]=now_epoch_seconds, ARGV[2]=max_batch
+        local processing = KEYS[1]
+        local queue = KEYS[2]
+        local vis = KEYS[3]
+        local now = tonumber(ARGV[1])
+        local max_batch = tonumber(ARGV[2])
+
+        local ids = redis.call('ZRANGEBYSCORE', vis, '-inf', now, 'LIMIT', 0, max_batch)
+        local moved = 0
+        for _, id in ipairs(ids) do
+          redis.call('ZREM', vis, id)
+          local removed = redis.call('LREM', processing, 1, id)
+          if removed > 0 then
+            redis.call('LPUSH', queue, id)
+            moved = moved + 1
+          end
+        end
+        return moved
+        ```
+
+      - Per-email lock (Redis `SET NX EX`) around the send path:
+
+        ```python
+        lock_key = f\"email:lock:{email_id}\"
+        token = uuid4().hex
+        if not redis.set(lock_key, token, nx=True, ex=60):
+            return \"locked\"  # skip/requeue/backoff
+
+        try:
+            send_email(email_id)
+        finally:
+            redis.eval(
+                \"if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0\",
+                1,
+                lock_key,
+                token,
+            )
+        ```
+
+      - Outbox/sweeper reconciliation job:
+        - Run every 1–5 minutes, batch (e.g., 100 ids).
+        - Query: DB rows with `status='queued'` (or `pending`) older than a small grace window and re-enqueue missing work.
+        - Implementation option: maintain an index key (e.g., `email:queued:set`) so the sweeper can `SISMEMBER` cheaply, or rely on the per-email lock/idempotent worker to tolerate duplicates.
 - Operations (recommended runbook topics):
   - Monitoring/alerting (examples; tune per environment):
     - P1: DLQ size > 100, dependency health check failures > 2 minutes, database/Redis connectivity failures.
