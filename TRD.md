@@ -183,10 +183,12 @@ Key environment variables:
   - `SMTP_HOST` (optional, string, default: `smtp.azurecomm.net`)
   - `SMTP_PORT` (optional, int, default: `587`; port `25` may also be supported depending on provider/network policy)
   - `SMTP_USERNAME` (required, string)
-    - ACS note: treat as an opaque, ACS-provisioned SMTP username (copy from the Azure Portal “SMTP Usernames” blade). See [Microsoft Learn: SMTP authentication](https://learn.microsoft.com/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication).
+    - ACS note: create and manage SMTP usernames in Azure Portal → “SMTP Usernames”; the value can be freeform or email-form (email-form requires a linked domain). See [Microsoft Learn: SMTP authentication](https://learn.microsoft.com/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication).
+    - Examples: `relay-app` (freeform), `noreply@example.com` (email-form)
   - `SMTP_PASSWORD` (required, string; secret)
-  - Auth: this implementation uses SMTP AUTH (username + password). Token-based SMTP auth (e.g., XOAUTH2) is not supported by the SMTP client in this repo today.
-  - Azure prerequisites: provisioning SMTP usernames/secrets requires Azure RBAC on the Communication Services resource; use a built-in Contributor/Owner role or a custom role with at least `Microsoft.Communication/CommunicationServices/read`, `Microsoft.Communication/CommunicationServices/write`, and the SMTP username operations you need (domain/sender management may require `Microsoft.Communication/EmailServices/*`).
+    - ACS note: use a client secret of the Microsoft Entra application linked to the SMTP username.
+  - Auth: this repo uses SMTP AUTH (username + password). For ACS, the service uses the linked Microsoft Entra application to obtain an access token internally; this repo does not implement the XOAUTH2 SASL mechanism.
+  - Azure prerequisites: creating SMTP usernames and linking Entra apps requires Azure RBAC on the Communication Services resource; recommended built-in role: `Communication and Email Service Owner` (or a custom role with at least `Microsoft.Communication/CommunicationServices/read`, `Microsoft.Communication/CommunicationServices/write`, and `Microsoft.Communication/EmailServices/write` as needed).
   - Secrets (examples; do not commit to git):
     - Strategy: dev uses local `.env`; staging/prod should inject secrets from a remote secret store and CI/CD.
     - Azure Key Vault: store `SMTP_USERNAME`/`SMTP_PASSWORD` as secrets and grant the app a Managed Identity with secret `get` access.
