@@ -5,6 +5,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
+import asyncio
 
 import redis.asyncio as redis
 
@@ -443,6 +444,7 @@ end
         self._redis = redis
         self._key_prefix = key_prefix
         self._release_script = None
+        self._release_script_lock = asyncio.Lock()
 
     async def acquire(self, name: str, *, token: str, ttl_seconds: int) -> bool:
         key = f"{self._key_prefix}{name}"
@@ -455,7 +457,9 @@ end
         register_script = getattr(self._redis, "register_script", None)
         if register_script is not None:
             if self._release_script is None:
-                self._release_script = register_script(self._RELEASE_LUA)
+                async with self._release_script_lock:
+                    if self._release_script is None:
+                        self._release_script = register_script(self._RELEASE_LUA)
             deleted = await self._release_script(keys=[key], args=[token])
             return bool(deleted)
 
