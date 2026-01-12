@@ -154,6 +154,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             await queue_service.move_to_dlq(
                 email_id,
                 dlq_reason,
+                retry_count=email.retry_count,
             )
             return False
         
@@ -194,7 +195,11 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                     db, email_id, EmailStatus.DLQ,
                     error_message=f"Permanent SMTP error: {error_msg}",
                 )
-                await queue_service.move_to_dlq(email_id, error_msg)
+                await queue_service.move_to_dlq(
+                    email_id,
+                    error_msg,
+                    retry_count=email.retry_count,
+                )
                 return False
 
             updated = await email_service.update_status(
@@ -262,6 +267,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             await queue_service.move_to_dlq(
                 email_id,
                 f"Exceeded max DB error retries: {error_msg}",
+                retry_count=db_error_count,
             )
             return False
         retry_step = min(db_error_count, settings.max_retries)

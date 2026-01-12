@@ -142,10 +142,15 @@
 
 ### Keys
 
-- `email:queue`: pending work (list)
-- `email:processing`: in-flight work (list; populated via `BLMOVE`)
-- `email:delayed`: delayed retry schedule (sorted set)
-- `email:dlq`: dead letter queue (list of JSON objects with `email_id` and `error`, e.g. `{"email_id":"...","error":"..."}`)
+- `email:queue`: pending work (list of `email_id` strings)
+- `email:processing`: in-flight work (list of `email_id` strings; populated via `BLMOVE(queue → processing)`)
+- `email:delayed`: delayed retry schedule (sorted set of `email_id` strings)
+  - Score (`ready_at`): Unix epoch seconds computed as `time.time() + delay_seconds`
+- `email:dlq`: dead letter queue (list of JSON strings)
+  - Schema (current): `email_id` (string), `error` (string), `dlq_at` (RFC3339 string), optional `retry_count` (int)
+  - Example: `{"email_id":"...","error":"Permanent SMTP error: 550 ...","retry_count":3,"dlq_at":"2026-01-11T16:00:00+00:00"}`
+
+- Delivery semantics: overall “at-least-once” (duplicates are possible; the worker should remain idempotent).
 
 ### Retention / TTL (production guidance)
 
@@ -162,10 +167,10 @@
 ### Startup Scripts
 
 `QueueService.connect()` registers Lua scripts used by:
-- Move to DLQ (atomic removal from processing + push to DLQ)
-- Requeue (atomic removal from processing + push to queue)
-- Requeue delayed (atomic removal from processing + add to delayed ZSET)
-- Move ready delayed items (ZSET → queue)
+- Move to DLQ (atomic): `LREM processing email_id` → if removed, `LPUSH dlq dlq_item`
+- Requeue (atomic): `LREM processing email_id` → if removed, `LPUSH queue email_id`
+- Requeue delayed (atomic): `LREM processing email_id` → if removed, `ZADD delayed ready_at email_id`
+- Move ready delayed items: `ZRANGEBYSCORE delayed 0..now LIMIT 0..N` → `ZREM` → `LPUSH queue` for each moved id
 
 ## Worker Behavior
 
