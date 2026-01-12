@@ -2,7 +2,7 @@
 
 ## Summary
 
-This project provides a simple “sender API + worker” system that lets internal services submit email requests via a REST API and have them delivered via Azure Communication Services (ACS) SMTP Relay, with persistence, retries, and a dead-letter queue.
+This project provides a reliable “sender API + worker” system that lets internal services submit email requests via a REST API and have them delivered via Azure Communication Services (ACS) SMTP Relay, with multi-tenant isolation, idempotency, persistence, retries, state transitions, and a dead-letter queue.
 
 ## Problem
 
