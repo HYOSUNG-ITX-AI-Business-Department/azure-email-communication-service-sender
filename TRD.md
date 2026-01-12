@@ -350,7 +350,7 @@ Key environment variables:
     - Verify network connectivity to `smtp.azurecomm.net:587` (e.g., `nc -zv smtp.azurecomm.net 587` or `telnet smtp.azurecomm.net 587`), DNS resolution, and outbound firewall/proxy/NAT rules.
     - Review any ACS/infra IP allowlists and firewall rules if configured.
     - Verify TLS/cert trust on the runtime.
-    - Check Azure service health (https://status.azure.com/status) and open an Azure support ticket via Azure Portal if the issue is widespread.
+    - Check [Azure service health](https://status.azure.com/status) and open an Azure support ticket via Azure Portal if the issue is widespread.
 - DLQ spikes:
   - Signals: `email:dlq` grows rapidly; permanent SMTP errors (5xx) or retry exhaustion.
   - Actions: sample DLQ entries for root causes, fix configuration/payload issues, and requeue only after mitigating the underlying cause.
@@ -401,7 +401,7 @@ Key environment variables:
 
 - P1 (Critical): page on-call immediately (PagerDuty/phone); escalate to the platform lead after 15 minutes if not mitigated.
 - P2 (Major): notify the platform channel; escalate to on-call after 60 minutes if not mitigated.
-- Vendor escalation: for ACS/SMTP-wide issues, open an Azure support ticket via Azure Portal and check service health at https://status.azure.com/status.
+- Vendor escalation: for ACS/SMTP-wide issues, open an Azure support ticket via Azure Portal and check [Azure service health](https://status.azure.com/status).
 
 ### Useful Commands (Categorized)
 
