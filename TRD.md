@@ -376,9 +376,11 @@ Key environment variables:
 
 ## Operational Runbook (Outline)
 
-> Tracked in #8 and treated as a production blocker until completed.
+> Production deployment is prohibited until every checklist item below is completed and validated.
 >
-> Completion checklist (fill in owners/links for your org):
+> Tracked in [issue #8](https://github.com/seonghobae/azure-email-communication-service-sender/issues/8) and treated as a production blocker (the issue must include assigned owners, target completion dates, verification steps, and a sign-off confirmation for each item).
+>
+> Completion checklist:
 > - [ ] Backup policy (DB/Redis) defined with RPO/RTO targets
 > - [ ] Restore procedure documented and tested (at least monthly)
 > - [ ] Deploy/rollback plan documented (including DB migration rollback expectations)
