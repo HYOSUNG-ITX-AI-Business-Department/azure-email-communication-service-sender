@@ -191,3 +191,50 @@ Key environment variables:
     - Example: if p95 SMTP send time is ~500ms, one worker ≈ 2 emails/sec; for 20 emails/sec, start with ~12 workers (2× headroom).
     - Tune DB indexes, connection pooling, worker concurrency, and retry/backoff settings per environment.
   - API deployment: run multiple API instances behind a load balancer; ensure all instances share the same DB and Redis.
+
+## Operational Runbook (Outline)
+
+> Tracked in Issue #8 and treated as a production blocker until completed.
+
+### Common Failure Scenarios
+
+- Queue backpressure (queue size grows continuously):
+  - Signals: rising `email:queue` length, p95 latency increasing, rising retries.
+  - Actions: scale workers, investigate SMTP throttling/errors, verify DB/Redis health, consider temporarily reducing intake at the caller/ingress.
+- Stuck processing (items accumulate in `email:processing`):
+  - Signals: `email:processing` grows while `email:queue` stays flat; worker restarts/crashes.
+  - Actions: inspect worker logs and dependency health; consider manual requeue after confirming the worker is not still processing those ids.
+- SMTP/ACS auth failures:
+  - Signals: repeated 535/5xx SMTP auth errors; sudden spike in failed sends.
+  - Actions: validate `SMTP_USERNAME`/`SMTP_PASSWORD` secret injection, rotate credentials, and verify TLS/cert trust on the runtime.
+- DLQ spikes:
+  - Signals: `email:dlq` grows rapidly; permanent SMTP errors (5xx) or retry exhaustion.
+  - Actions: sample DLQ entries for root causes, fix configuration/payload issues, and requeue only after mitigating the underlying cause.
+- Dependency outage (Redis/DB):
+  - Signals: `/health` returns 503, connection errors in logs.
+  - Actions: restore dependency availability; scale workers down if they are crash-looping; verify recovery by watching queue movement and error rates.
+
+### Safety Mode / Circuit Breakers (Operational)
+
+- Stop/scale down workers when upstream SMTP or dependencies are unstable to avoid runaway retries/DLQ growth.
+- Apply ingress controls (rate limits / temporary blocks) at the caller or gateway when queue backpressure exceeds agreed thresholds.
+
+### Backup & Recovery
+
+- Database:
+  - Backups: define cadence and retention; validate restores regularly.
+  - Recovery: after restore, reconcile queued/failed records vs. Redis queue state (see Scaling and concurrency gaps).
+- Redis:
+  - Persistence: prefer AOF for durability; decide acceptable data-loss window and document recovery steps.
+
+### Deploy & Rollback
+
+- Before deploy: ensure `DEBUG=false`, run migrations (Alembic), and validate `/health` and `/ready` in the target environment.
+- Deploy order: API first (stateless), then workers; roll out gradually while monitoring error rates and queue metrics.
+- Rollback: revert application versions; if migrations were applied, follow the DB rollback plan and verify schema compatibility.
+
+### Useful Commands (Examples)
+
+- Check health/readiness: `curl -fsS http://<host>:8000/health` and `curl -fsS http://<host>:8000/ready`
+- Check queue stats endpoint (requires allowlist): `curl -H 'X-Caller-Id: <ops-id>' http://<host>:8000/api/v1/emails/`
+- Inspect Redis queues: `redis-cli LLEN email:queue`, `redis-cli LLEN email:processing`, `redis-cli LLEN email:dlq`, `redis-cli ZCARD email:delayed`

@@ -90,4 +90,4 @@ Teams need a reliable, auditable way to send transactional email without embeddi
 
 - Do we require a formal “admin/ops identity” mechanism beyond caller allowlists? (tracked in #6)
 - Should idempotency replays return 200 vs 202 when an email is already sent? (tracked in #7)
-- Migration strategy (Alembic) and operational runbooks for production deployments. (tracked in #8)
+- Migration strategy (Alembic) and operational runbooks for production deployments. (tracked in #8; production blocker; see [TRD Operational Runbook](TRD.md#operational-runbook-outline))
