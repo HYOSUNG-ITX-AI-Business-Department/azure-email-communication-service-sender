@@ -398,7 +398,6 @@ class QueueService:
             await self.redis_client.sadd(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception("Failed to mark %s as queued", email_id)
-            raise
 
     async def clear_queued(self, email_id: str) -> None:
         """Clear queued marker (best-effort)."""
@@ -406,7 +405,6 @@ class QueueService:
             await self.redis_client.srem(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception("Failed to clear queued marker for %s", email_id)
-            raise
 
 
 # Global queue service instance

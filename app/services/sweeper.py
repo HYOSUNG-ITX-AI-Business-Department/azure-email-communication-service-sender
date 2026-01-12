@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.models.email import EmailRecord
 from app.schemas.email import EmailStatus
 from app.services.queue import queue_service
@@ -84,12 +83,11 @@ class SweeperService:
                 self._skipped_total += 1
                 continue
 
-            # Guardrail: avoid infinite requeue loops. Reuse retry_count for now.
-            # This is a compromise until we have a separate sweeper counter column.
-            if (record.retry_count or 0) >= self.max_requeue_attempts:
+            sweeper_requeue_count = getattr(record, "sweeper_requeue_count", 0) or 0
+            if sweeper_requeue_count >= self.max_requeue_attempts:
                 self._skipped_total += 1
                 logger.warning(
-                    "Sweeper: email %s exceeded max requeue attempts (%s); skipping",
+                    "Sweeper: email %s exceeded max sweeper requeue attempts (%s); skipping",
                     email_id,
                     self.max_requeue_attempts,
                 )
@@ -106,7 +104,7 @@ class SweeperService:
             # If DB commit fails, sweeper will retry later (idempotent).
             try:
                 record.status = EmailStatus.QUEUED.value
-                record.retry_count = (record.retry_count or 0) + 1
+                record.sweeper_requeue_count = sweeper_requeue_count + 1
                 await db.commit()
             except Exception:
                 self._errored_total += 1

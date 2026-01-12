@@ -36,6 +36,8 @@ class EmailRecord(Base):
     # Status tracking
     status = Column(String, nullable=False, default="pending", index=True)
     retry_count = Column(Integer, default=0)
+    # Dedicated counter for sweeper-driven re-enqueue (separate from worker retry_count).
+    sweeper_requeue_count = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
     
     # Timestamps

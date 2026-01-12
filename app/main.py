@@ -28,12 +28,12 @@ async def lifespan(_app: FastAPI):
     await queue_service.connect()
 
     sweeper_task: asyncio.Task | None = None
-    if getattr(settings, "sweeper_enabled", False):
+    if settings.sweeper_enabled:
         sweeper = SweeperService(
-            grace_seconds=getattr(settings, "sweeper_grace_seconds", 60),
-            batch_size=getattr(settings, "sweeper_batch_size", 100),
-            interval_seconds=getattr(settings, "sweeper_interval_seconds", 60),
-            max_requeue_attempts=getattr(settings, "sweeper_max_requeue_attempts", 10),
+            grace_seconds=settings.sweeper_grace_seconds,
+            batch_size=settings.sweeper_batch_size,
+            interval_seconds=settings.sweeper_interval_seconds,
+            max_requeue_attempts=settings.sweeper_max_requeue_attempts,
         )
         sweeper_task = asyncio.create_task(sweeper.run_forever(AsyncSessionLocal))
         logger.info("Sweeper enabled")
@@ -44,7 +44,9 @@ async def lifespan(_app: FastAPI):
     if sweeper_task is not None:
         sweeper_task.cancel()
         try:
-            await sweeper_task
+            await asyncio.wait_for(sweeper_task, timeout=5)
+        except asyncio.TimeoutError:
+            logger.warning("Sweeper task did not shutdown within timeout; forcing cancel")
         except asyncio.CancelledError:
             pass
     await queue_service.disconnect()
