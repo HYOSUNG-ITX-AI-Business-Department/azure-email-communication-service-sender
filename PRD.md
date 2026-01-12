@@ -68,8 +68,18 @@ Teams need a reliable, auditable way to send transactional email without embeddi
 
 ### Reliability
 
-- Persist state to support restarts and auditing.
-- Ensure failures do not silently drop requests.
+- SLO targets (initial; tune per environment):
+  - API availability: ≥ 99.9% (monthly).
+  - Delivery success rate (sent / total): ≥ 99.9% (24h rolling; see Success Metrics).
+- Recovery targets (initial; tune per environment):
+  - RTO: resume accepting requests and processing queued emails within 15 minutes after a restart or dependency outage (assuming DB/Redis are restored).
+  - RPO: 0 for persisted email records (DB); queue recovery depends on Redis persistence (configure AOF and/or a DB→queue reconciliation strategy).
+- Dependency failure behavior:
+  - If DB is unavailable: `/health` and `/ready` must fail and the API must reject submissions until DB recovers.
+  - If Redis is unavailable: `/health` and `/ready` must fail; submissions must not be accepted unless the system can guarantee later enqueue (outbox/reconciliation; see TRD production readiness/runbook).
+- Backup/DR:
+  - Database backups + PITR enabled; regularly rehearse restores (at least monthly in a non-production environment).
+  - Redis persistence configured to meet RPO; have a documented recovery procedure (see TRD runbook).
 
 ### Security
 
