@@ -222,6 +222,14 @@ Key environment variables:
   - `API_HOST` (optional, string, default: `127.0.0.1`; set `0.0.0.0` in production)
   - `API_PORT` (optional, int, default: `8000`)
   - `DEBUG` (optional, bool, default: `false`; also controls uvicorn reload and dev-only DB auto-creation)
+- Idempotency (suggested future option):
+  - `IDEMPOTENCY_WINDOW_HOURS` (optional, int, default: `24`)
+    - Defines the time window during which a given `caller_id + idempotency_key` pair is treated as deduplicated.
+    - Within the window: requests with the same `caller_id + idempotency_key` return the existing record (and should not enqueue again).
+    - After the window: the same `idempotency_key` can be reused to create a new record.
+    - Data retention interaction:
+      - If your retention is shorter than the window, idempotency can break early (records/keys disappear before the window ends).
+      - If your retention is longer than the window, you likely need explicit key expiry/cleanup (or a separate idempotency store) so keys can expire before the underlying email records are deleted.
 - Operations (suggested future options):
   - Worker tuning: `WORKER_COUNT`, `BATCH_SIZE`
   - Logging: `LOG_LEVEL`, `LOG_FORMAT`, `LOG_OUTPUT`
