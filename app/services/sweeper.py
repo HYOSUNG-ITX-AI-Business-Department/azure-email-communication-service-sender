@@ -2,8 +2,9 @@ import asyncio
 import logging
 import random
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Callable
+from typing import AsyncContextManager
 
 from prometheus_client import Counter, Gauge, Histogram
 from sqlalchemy import select
@@ -127,8 +128,6 @@ class SweeperService:
 
                 sweeper_requeue_count = record.sweeper_requeue_count or 0
                 if sweeper_requeue_count >= self.max_requeue_attempts:
-                    self._failed_total += 1
-                    sweeper_failed_total.inc()
                     logger.warning(
                         "Sweeper: email %s exceeded max sweeper requeue attempts (%s); marking FAILED",
                         email_id,
@@ -141,6 +140,8 @@ class SweeperService:
                         async with db.begin():
                             record.status = EmailStatus.FAILED.value
                             record.error_message = failure_reason
+                        self._failed_total += 1
+                        sweeper_failed_total.inc()
                     except Exception:
                         self._errored_total += 1
                         sweeper_errored_total.inc()
@@ -207,7 +208,10 @@ class SweeperService:
             if succeeded:
                 sweeper_last_success_timestamp.set(time.time())
 
-    async def run_forever(self, session_factory: Callable[[], AsyncSession]) -> None:
+    async def run_forever(
+        self,
+        session_factory: Callable[[], AsyncContextManager[AsyncSession]],
+    ) -> None:
         """Run sweeper loop until cancelled."""
         logger.info(
             "Sweeper started (interval=%ss grace=%ss batch=%s max_requeue_attempts=%s)",
