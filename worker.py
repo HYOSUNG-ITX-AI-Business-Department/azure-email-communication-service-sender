@@ -82,6 +82,7 @@ def calculate_backoff_delay(
 
 
 def _start_worker_metrics_server() -> None:
+    """Start the Prometheus metrics HTTP server for the worker, if enabled."""
     if not settings.metrics_enabled:
         return
 
