@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ConfigurationError(ValueError):
@@ -55,6 +57,10 @@ class Settings(BaseSettings):
     worker_metrics_host: str = "127.0.0.1"
     worker_metrics_port: int = 8001
     worker_metrics_poll_interval_seconds: int = 15
+
+    # Per-email distributed lock (duplicate send prevention)
+    worker_lock_ttl_seconds: int = Field(default=120, ge=1)
+    worker_lock_contended_delay_seconds: int = Field(default=5, ge=0)
 
     # Sweeper (DB/queue reconciliation)
     sweeper_enabled: bool = False

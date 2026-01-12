@@ -1,9 +1,18 @@
-import redis.asyncio as redis
-from app.config import settings
+from __future__ import annotations
+
 import json
 import logging
 import time
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+import asyncio
+
+import redis.asyncio as redis
+
+from app.config import settings
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -413,3 +422,46 @@ class QueueService:
 
 # Global queue service instance
 queue_service = QueueService()
+
+
+class RedisLock:
+    """Simple Redis distributed lock with token-safe release.
+
+    Uses:
+      - Acquire: SET key token NX EX ttl
+      - Release: Lua script deletes key only if stored token matches
+    """
+
+    _RELEASE_LUA = """
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+else
+  return 0
+end
+"""
+
+    def __init__(self, redis: Redis, *, key_prefix: str = "email:lock:") -> None:
+        self._redis = redis
+        self._key_prefix = key_prefix
+        self._release_script = None
+        self._release_script_lock = asyncio.Lock()
+
+    async def acquire(self, name: str, *, token: str, ttl_seconds: int) -> bool:
+        key = f"{self._key_prefix}{name}"
+        # redis-py: set(name, value, ex=ttl, nx=True) -> bool|None
+        result = await self._redis.set(key, token, ex=ttl_seconds, nx=True)
+        return bool(result)
+
+    async def release(self, name: str, *, token: str) -> bool:
+        key = f"{self._key_prefix}{name}"
+        register_script = getattr(self._redis, "register_script", None)
+        if register_script is not None:
+            if self._release_script is None:
+                async with self._release_script_lock:
+                    if self._release_script is None:
+                        self._release_script = register_script(self._RELEASE_LUA)
+            deleted = await self._release_script(keys=[key], args=[token])
+            return bool(deleted)
+
+        deleted = await self._redis.eval(self._RELEASE_LUA, 1, key, token)
+        return bool(deleted)

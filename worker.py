@@ -3,17 +3,20 @@ import contextlib
 import logging
 import os
 import random
-from redis.exceptions import RedisError
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.exc import OperationalError
-from aiosmtplib import SMTPException, SMTPResponseException
-from app.config import settings
-from app.services.queue import queue_service
-from app.services.smtp import smtp_service
-from app.services.email import email_service
-from app.schemas.email import EmailStatus
+import secrets
 import signal
 import sys
+from redis.exceptions import RedisError
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from aiosmtplib import SMTPException, SMTPResponseException
+
+from app.config import settings
+from app.schemas.email import EmailStatus
+from app.services.email import email_service
+from app.services.queue import RedisLock, queue_service
+from app.services.smtp import smtp_service
 
 from prometheus_client import CollectorRegistry, Counter, Gauge, multiprocess, start_http_server
 
@@ -39,6 +42,14 @@ WORKER_RESULT_TOTAL = Counter(
     "email_worker_result_total",
     "Total emails processed by the worker, labeled by result",
     ["result"],
+)
+WORKER_LOCK_ACQUIRED = Counter(
+    "email_worker_lock_acquired_total",
+    "Total number of per-email lock acquisitions by the worker",
+)
+WORKER_LOCK_CONTENDED = Counter(
+    "email_worker_lock_contended_total",
+    "Total number of per-email lock contention events by the worker",
 )
 QUEUE_SIZE = Gauge(
     "email_queue_size",
@@ -166,7 +177,28 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         bool: True if successful, False if failed
     """
     db_error = False
+    token = secrets.token_urlsafe(16)
+    lock = None
+    acquired = False
+
     try:
+        redis_client = getattr(queue_service, "redis_client", None)
+        if redis_client is not None:
+            lock = RedisLock(redis_client)
+            acquired = await lock.acquire(
+                email_id,
+                token=token,
+                ttl_seconds=int(settings.worker_lock_ttl_seconds),
+            )
+            if not acquired:
+                logger.info("Lock contended for email %s; requeue delayed", email_id)
+                WORKER_LOCK_CONTENDED.inc()
+                base_delay = int(settings.worker_lock_contended_delay_seconds)
+                jitter = random.randint(0, max(1, base_delay))
+                await queue_service.requeue_delayed(email_id, base_delay + jitter)
+                return False
+            WORKER_LOCK_ACQUIRED.inc()
+
         # Get email record
         email = await email_service.get_by_id(db, email_id)
         if not email:
@@ -204,8 +236,19 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             )
             return False
         
-        # Update status to sending
-        await email_service.update_status(db, email_id, EmailStatus.SENDING)
+        # NOTE: transition_fn fallback exists for rolling deploy compatibility.
+        # Once all deployments include transition_to_sending, remove this branch.
+        # Symbols: transition_to_sending, transition_fn, email_service, update_status, EmailStatus.SENDING
+        transition_fn = getattr(email_service, "transition_to_sending", None)
+        if transition_fn is not None:
+            transitioned = await transition_fn(db, email_id)
+            if not transitioned:
+                logger.info("Email %s already being processed, skipping", email_id)
+                WORKER_RESULT_TOTAL.labels(result="skipped").inc()
+                await queue_service.complete(email_id)
+                return False
+        else:
+            await email_service.update_status(db, email_id, EmailStatus.SENDING)
         
         # Load addresses and metadata
         to_addresses = email.to_addresses
@@ -372,9 +415,24 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
         return False
     finally:
+        if acquired and lock is not None:
+            try:
+                await lock.release(email_id, token=token)
+            except RedisError as exc:
+                logger.warning(
+                    "Failed to release lock for email_id=%s: %s",
+                    email_id,
+                    exc,
+                )
         if not db_error:
-            with contextlib.suppress(RedisError):
+            try:
                 await queue_service.clear_db_error_count(email_id)
+            except RedisError as exc:
+                logger.warning(
+                    "Failed to clear DB error count for email_id=%s: %s",
+                    email_id,
+                    exc,
+                )
 
 
 async def poll_delayed_queue(poll_interval: float = 1.0, batch_size: int = 100) -> None:
