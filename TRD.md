@@ -129,6 +129,11 @@
   - Configure and validate SPF for the `envelope_from` domain (RFC 7208).
   - Configure DKIM signing for the From domain (RFC 6376) and align with your DMARC policy (RFC 7489).
   - Choose DMARC alignment (relaxed vs strict) based on organizational policy and monitor DMARC reports.
+- References (Microsoft Learn):
+  - ACS domain verification and SPF/DKIM DNS records: [Add custom verified domains](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/add-custom-verified-domains).
+  - ACS domain-to-resource linking: [Connect a verified email domain to send email](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/connect-email-communication-resource).
+  - ACS sender authentication overview (SPF/DKIM): [Email domains and sender authentication for Azure Communication Services](https://learn.microsoft.com/en-us/azure/communication-services/concepts/email/email-domain-and-sender-authentication).
+  - DMARC policy and reporting: [Use DMARC to validate email, setup steps](https://learn.microsoft.com/en-us/defender-office-365/email-authentication-dmarc-configure).
 
 ## Queue Design (Redis/Valkey)
 
