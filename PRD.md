@@ -60,6 +60,7 @@ Teams need a reliable, auditable way to send transactional email without embeddi
 
 - Consume email ids from a Redis/Valkey queue and send via ACS SMTP Relay.
 - Update statuses through the lifecycle (`pending` → `queued` → `sending` → `sent` / `failed` / `dlq`).
+- Record all status transitions in an `audit_log` (JSON list) for debugging and compliance (timestamp + status + message + retry metadata).
 - Retry transient failures up to `MAX_RETRIES` with exponential backoff (optional cap/jitter).
 - Move permanently failing items or items that exceed retries to DLQ.
 
