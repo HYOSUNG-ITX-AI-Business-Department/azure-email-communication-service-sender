@@ -51,19 +51,24 @@
     "type": "object",
     "required": ["caller_id", "from", "to", "subject", "body"],
     "properties": {
-      "caller_id": {"type": "string"},
-      "idempotency_key": {"type": ["string", "null"]},
+      "caller_id": {"type": "string", "maxLength": 256},
+      "idempotency_key": {"type": ["string", "null"], "maxLength": 256},
       "from": {"type": "string", "format": "email"},
       "envelope_from": {"type": ["string", "null"], "format": "email"},
       "to": {"type": "array", "minItems": 1, "items": {"type": "string", "format": "email"}},
       "cc": {"type": ["array", "null"], "items": {"type": "string", "format": "email"}},
       "bcc": {"type": ["array", "null"], "items": {"type": "string", "format": "email"}},
-      "subject": {"type": "string"},
-      "body": {"type": "string"},
+      "subject": {"type": "string", "maxLength": 1000},
+      "body": {"type": "string", "maxLength": 1000000},
       "html": {"type": "boolean"},
       "reply_to": {"type": ["string", "null"], "format": "email"},
-      "headers": {"type": ["object", "null"], "additionalProperties": {"type": "string"}},
-      "tags": {"type": ["array", "null"], "items": {"type": "string"}},
+      "headers": {
+        "type": ["object", "null"],
+        "maxProperties": 50,
+        "propertyNames": {"type": "string", "maxLength": 128},
+        "additionalProperties": {"type": "string", "maxLength": 2048}
+      },
+      "tags": {"type": ["array", "null"], "maxItems": 50, "items": {"type": "string", "maxLength": 128}},
       "attachments": {
         "type": ["array", "null"],
         "maxItems": 10,
@@ -71,13 +76,13 @@
           "type": "object",
           "required": ["filename", "content_base64"],
           "properties": {
-            "filename": {"type": "string"},
-            "content_type": {"type": "string"},
-            "content_base64": {"type": "string"}
+            "filename": {"type": "string", "maxLength": 255},
+            "content_type": {"type": "string", "maxLength": 255},
+            "content_base64": {"type": "string", "maxLength": 14000000}
           }
         }
       },
-      "smtp_auth_profile_id": {"type": ["string", "null"]}
+      "smtp_auth_profile_id": {"type": ["string", "null"], "maxLength": 256}
     }
   }
   ```
@@ -278,7 +283,7 @@
   - `body`: ≤ 1,000,000 chars
   - `headers`: ≤ 50 entries; header name ≤ 128 chars; header value ≤ 2048 chars
   - `tags`: ≤ 50 entries; each tag ≤ 128 chars
-  - `attachments`: ≤ 10; each decoded payload ≤ 10 MiB (base64 validated)
+  - `attachments`: ≤ 10; filename/content_type ≤ 255 chars; base64 ≤ 14,000,000 chars; decoded payload ≤ 10 MiB
 - CR/LF injection protection (reject request when `\r` or `\n` appears):
   - Strings: `subject`, `from`, `envelope_from`, `reply_to`, `caller_id`, `idempotency_key`, `smtp_auth_profile_id`
   - Address lists: `to`, `cc`, `bcc`

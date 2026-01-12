@@ -9,6 +9,8 @@ from enum import Enum
 MAX_ATTACHMENTS = 10
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MiB
 MAX_ATTACHMENT_BASE64_CHARS = 14_000_000
+MAX_ATTACHMENT_FILENAME_CHARS = 255
+MAX_ATTACHMENT_CONTENT_TYPE_CHARS = 255
 MAX_CALLER_ID_CHARS = 256
 MAX_IDEMPOTENCY_KEY_CHARS = 256
 MAX_SMTP_AUTH_PROFILE_ID_CHARS = 256
@@ -32,9 +34,15 @@ class EmailStatus(str, Enum):
 
 class EmailAttachment(BaseModel):
     """Attachment model for email requests"""
-    filename: str = Field(..., min_length=1, description="Attachment filename")
+    filename: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_ATTACHMENT_FILENAME_CHARS,
+        description="Attachment filename",
+    )
     content_type: str = Field(
         "application/octet-stream",
+        max_length=MAX_ATTACHMENT_CONTENT_TYPE_CHARS,
         description="Attachment MIME type",
     )
     content_base64: str = Field(
