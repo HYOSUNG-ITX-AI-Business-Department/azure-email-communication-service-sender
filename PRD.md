@@ -53,8 +53,18 @@ Teams need a reliable, auditable way to send transactional email without embeddi
 
 ### Status API
 
-- Provide a read endpoint that returns the current status and metadata for a given email id.
-- Enforce caller scoping (only the authenticated caller may access its emails).
+- Provide a read endpoint: `GET /api/v1/emails/{email_id}`.
+- Enforce caller scoping: require `X-Caller-Id` and ensure only the owning caller can access its emails.
+- Status values: `pending`, `queued`, `sending`, `sent`, `failed`, `dlq`.
+- Response fields (minimum):
+  - Identifiers: `email_id`, `caller_id`
+  - State: `status`, `retry_count`, optional `error_message`
+  - Timestamps: `created_at`, `updated_at`, optional `sent_at`
+  - Key metadata: `from_address`, `envelope_from`, `to`, `subject`, optional `smtp_auth_profile_id`
+- HTTP responses:
+  - 200: returns the status payload
+  - 404: email not found (also used for caller mismatch to avoid leaking existence)
+  - 500: internal error
 
 ### Delivery worker
 
