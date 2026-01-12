@@ -390,11 +390,14 @@ async def worker():
         await queue_service.connect()
 
         delayed_task = asyncio.create_task(poll_delayed_queue())
+        worker_metrics_interval = (
+            float(settings.worker_metrics_poll_interval_seconds)
+            if settings.metrics_enabled
+            else 0.0
+        )
         if settings.metrics_enabled:
             metrics_task = asyncio.create_task(
-                poll_queue_metrics(
-                    poll_interval=float(settings.worker_metrics_poll_interval_seconds)
-                )
+                poll_queue_metrics(poll_interval=worker_metrics_interval)
             )
 
         while not shutdown_flag:
@@ -426,11 +429,7 @@ async def worker():
                 delayed_task = asyncio.create_task(poll_delayed_queue())
                 if settings.metrics_enabled:
                     metrics_task = asyncio.create_task(
-                        poll_queue_metrics(
-                            poll_interval=float(
-                                settings.worker_metrics_poll_interval_seconds
-                            )
-                        )
+                        poll_queue_metrics(poll_interval=worker_metrics_interval)
                     )
             except Exception:
                 logger.exception("Error in worker loop")
