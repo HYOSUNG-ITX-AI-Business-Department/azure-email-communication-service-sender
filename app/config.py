@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     worker_metrics_port: int = 8001
     worker_metrics_poll_interval_seconds: int = 15
 
+    # Sweeper (DB/queue reconciliation)
+    sweeper_enabled: bool = False
+    sweeper_interval_seconds: int = 60
+    sweeper_grace_seconds: int = 60
+    sweeper_batch_size: int = 100
+    sweeper_max_requeue_attempts: int = 10
+
     # Admin/ops allowlist for queue stats endpoint (comma-separated caller ids)
     queue_stats_allowed_callers: str = ""
     

@@ -1,11 +1,13 @@
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 from app.api import emails
 from app.config import settings
 from app.database import AsyncSessionLocal, init_db
 from app.services.queue import queue_service
+from app.services.sweeper import SweeperService
 from sqlalchemy import text
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -24,9 +26,30 @@ async def lifespan(_app: FastAPI):
             "Skipping init_db() schema auto-creation; run migrations before starting"
         )
     await queue_service.connect()
+
+    sweeper_task: asyncio.Task | None = None
+    if settings.sweeper_enabled:
+        sweeper = SweeperService(
+            grace_seconds=settings.sweeper_grace_seconds,
+            batch_size=settings.sweeper_batch_size,
+            interval_seconds=settings.sweeper_interval_seconds,
+            max_requeue_attempts=settings.sweeper_max_requeue_attempts,
+        )
+        sweeper_task = asyncio.create_task(sweeper.run_forever(AsyncSessionLocal))
+        logger.info("Sweeper enabled")
+
     yield
     # Shutdown
     logger.info("Shutting down")
+    if sweeper_task is not None:
+        sweeper_task.cancel()
+        _, pending = await asyncio.wait({sweeper_task}, timeout=5)
+        if pending:
+            logger.warning(
+                "Sweeper task did not shutdown within timeout; forcing cancel and waiting"
+            )
+            sweeper_task.cancel()
+            await asyncio.gather(sweeper_task, return_exceptions=True)
     await queue_service.disconnect()
 
 
