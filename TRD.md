@@ -117,6 +117,15 @@
   - timestamps: `created_at`, `updated_at`, optional `sent_at`
   - `audit_log` (JSON list of status transitions)
 
+### Deliverability Considerations
+
+- Deliverability depends on domain alignment between `from_address` (RFC 5322.From) and `envelope_from` (RFC 5321.MailFrom).
+- Recommended:
+  - Use verified/custom sending domains in your email provider (ACS) and keep `envelope_from` within that domain (enforced by `ALLOWED_MAILFROM`).
+  - Configure and validate SPF for the `envelope_from` domain (RFC 7208).
+  - Configure DKIM signing for the From domain (RFC 6376) and align with your DMARC policy (RFC 7489).
+  - Choose DMARC alignment (relaxed vs strict) based on organizational policy and monitor DMARC reports.
+
 ## Queue Design (Redis/Valkey)
 
 ### Keys
