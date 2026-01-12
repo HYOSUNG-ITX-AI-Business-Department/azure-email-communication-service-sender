@@ -617,6 +617,43 @@ Key environment variables:
   - Performance baselines and sizing:
     - Measure throughput per worker (emails/sec) under realistic SMTP quotas and p95 latency.
     - Example: if p95 SMTP send time is ~500ms, one worker ≈ 2 emails/sec; for 20 emails/sec, start with ~12 workers (2× headroom).
+    - How to measure (example approach):
+      - Load test tools: k6 or Locust (generate `POST /api/v1/emails/` traffic).
+      - Scenarios: (1) no attachments, plain text; (2) HTML; (3) with attachments (to validate size/latency impact).
+      - Metrics collection:
+        - API: scrape `/metrics` (when enabled) and track request rate + latency.
+        - Worker: scrape worker metrics and derive throughput from `email_worker_result_total{result="sent"}` (and failure/retry rates from labeled counters).
+      - Example k6 script (no attachments):
+
+        ```javascript
+        import http from "k6/http";
+        import { check, sleep } from "k6";
+
+        export const options = { vus: 10, duration: "1m" };
+
+        export default function () {
+          const url = `${__ENV.BASE_URL}/api/v1/emails/`;
+          const payload = JSON.stringify({
+            caller_id: "load-test",
+            from: "noreply@example.com",
+            to: ["user@example.com"],
+            subject: "Load test",
+            body: "Hello",
+            html: false
+          });
+          const params = {
+            headers: {
+              "Content-Type": "application/json",
+              "X-Caller-Id": "load-test"
+            }
+          };
+
+          const res = http.post(url, payload, params);
+          check(res, { "accepted": (r) => r.status === 202 });
+          sleep(0.1);
+        }
+        ```
+
     - Tune DB indexes, connection pooling, worker concurrency, and retry/backoff settings per environment.
   - API deployment: run multiple API instances behind a load balancer; ensure all instances share the same DB and Redis.
 
