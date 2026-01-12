@@ -413,3 +413,35 @@ class QueueService:
 
 # Global queue service instance
 queue_service = QueueService()
+
+
+class RedisLock:
+    """Simple Redis distributed lock with token-safe release.
+
+    Uses:
+      - Acquire: SET key token NX EX ttl
+      - Release: Lua script deletes key only if stored token matches
+    """
+
+    _RELEASE_LUA = """
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+  return redis.call("DEL", KEYS[1])
+else
+  return 0
+end
+"""
+
+    def __init__(self, redis, *, key_prefix: str = "email:lock:") -> None:
+        self._redis = redis
+        self._key_prefix = key_prefix
+
+    async def acquire(self, name: str, *, token: str, ttl_seconds: int) -> bool:
+        key = f"{self._key_prefix}{name}"
+        # redis-py: set(name, value, ex=ttl, nx=True) -> bool|None
+        result = await self._redis.set(key, token, ex=ttl_seconds, nx=True)
+        return bool(result)
+
+    async def release(self, name: str, *, token: str) -> bool:
+        key = f"{self._key_prefix}{name}"
+        deleted = await self._redis.eval(self._RELEASE_LUA, numkeys=1, keys=[key], args=[token])
+        return bool(deleted)

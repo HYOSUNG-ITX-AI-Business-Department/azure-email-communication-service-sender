@@ -3,17 +3,20 @@ import contextlib
 import logging
 import os
 import random
-from redis.exceptions import RedisError
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.exc import OperationalError
-from aiosmtplib import SMTPException, SMTPResponseException
-from app.config import settings
-from app.services.queue import queue_service
-from app.services.smtp import smtp_service
-from app.services.email import email_service
-from app.schemas.email import EmailStatus
+import secrets
 import signal
 import sys
+from redis.exceptions import RedisError
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from aiosmtplib import SMTPException, SMTPResponseException
+
+from app.config import settings
+from app.schemas.email import EmailStatus
+from app.services.email import email_service
+from app.services.queue import RedisLock, queue_service
+from app.services.smtp import smtp_service
 
 from prometheus_client import CollectorRegistry, Counter, Gauge, multiprocess, start_http_server
 
@@ -166,7 +169,28 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         bool: True if successful, False if failed
     """
     db_error = False
+    token = secrets.token_urlsafe(16)
+    lock = None
+    acquired = False
+
     try:
+        redis_client = getattr(queue_service, "redis_client", None)
+        if redis_client is not None:
+            lock = RedisLock(redis_client)
+            acquired = await lock.acquire(
+                email_id,
+                token=token,
+                ttl_seconds=int(settings.worker_lock_ttl_seconds),
+            )
+            if not acquired:
+                logger.info("Lock contended for email %s; requeue delayed", email_id)
+                WORKER_RESULT_TOTAL.labels(result="lock_contended").inc()
+                await queue_service.requeue_delayed(
+                    email_id,
+                    int(settings.worker_lock_contended_delay_seconds),
+                )
+                return False
+
         # Get email record
         email = await email_service.get_by_id(db, email_id)
         if not email:
@@ -372,6 +396,9 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
         return False
     finally:
+        if acquired and lock is not None:
+            with contextlib.suppress(RedisError):
+                await lock.release(email_id, token=token)
         if not db_error:
             with contextlib.suppress(RedisError):
                 await queue_service.clear_db_error_count(email_id)

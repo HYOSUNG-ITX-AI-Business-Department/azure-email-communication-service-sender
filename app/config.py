@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     worker_metrics_port: int = 8001
     worker_metrics_poll_interval_seconds: int = 15
 
+    # Per-email distributed lock (duplicate send prevention)
+    worker_lock_ttl_seconds: int = 120
+    worker_lock_contended_delay_seconds: int = 5
+
     # Sweeper (DB/queue reconciliation)
     sweeper_enabled: bool = False
     sweeper_interval_seconds: int = 60
