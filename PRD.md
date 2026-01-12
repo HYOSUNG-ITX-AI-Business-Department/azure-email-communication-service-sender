@@ -39,6 +39,11 @@ Teams need a reliable, auditable way to send transactional email without embeddi
   - `subject`, `body`, `html`
   - optional `reply_to`, `headers` (allowlisted), `tags`
   - `caller_id` (required) and optional `idempotency_key`
+- Deployment/setup requirement (ACS Email):
+  - Verify a sending domain in ACS by publishing the required DNS records (SPF/DKIM): [Add custom verified domains](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/add-custom-verified-domains).
+  - Connect the verified domain to the Communication Services resource used for SMTP sending: [Connect a verified email domain to send email](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/connect-email-communication-resource).
+  - Configure `ALLOWED_MAILFROM` to include only addresses under verified/connected domains; requests must validate `envelope_from` against `ALLOWED_MAILFROM` and reject when it does not match.
+  - Operational check: ensure the domain and SMTP username status is “Ready to use” before enabling production traffic.
 - Require `X-Caller-Id` header (trusted upstream) and reject when it does not match `caller_id`.
 - Return an email id and current status on success.
 - Idempotency:
