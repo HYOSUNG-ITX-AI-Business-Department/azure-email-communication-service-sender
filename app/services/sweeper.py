@@ -3,6 +3,7 @@ import logging
 import random
 import time
 from datetime import datetime, timedelta, timezone
+from typing import Callable
 
 from prometheus_client import Counter, Gauge, Histogram
 from sqlalchemy import select
@@ -140,7 +141,7 @@ class SweeperService:
                         async with db.begin():
                             record.status = EmailStatus.FAILED.value
                             record.error_message = failure_reason
-                    except Exception as e:
+                    except Exception:
                         self._errored_total += 1
                         sweeper_errored_total.inc()
                         logger.exception(
@@ -206,7 +207,7 @@ class SweeperService:
             if succeeded:
                 sweeper_last_success_timestamp.set(time.time())
 
-    async def run_forever(self, session_factory) -> None:
+    async def run_forever(self, session_factory: Callable[[], AsyncSession]) -> None:
         """Run sweeper loop until cancelled."""
         logger.info(
             "Sweeper started (interval=%ss grace=%ss batch=%s max_requeue_attempts=%s)",
