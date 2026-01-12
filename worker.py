@@ -14,6 +14,8 @@ from app.schemas.email import EmailStatus
 import signal
 import sys
 
+from prometheus_client import Counter, Gauge, start_http_server
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -27,6 +29,21 @@ PERMANENT_SMTP_CODES = {500, 501, 502, 503, 504, 521, 550, 551, 552, 553, 554}
 
 # Graceful shutdown flag
 shutdown_flag = False
+
+WORKER_SEND_ATTEMPT_TOTAL = Counter(
+    "email_worker_send_attempt_total",
+    "Total SMTP send attempts made by the worker",
+)
+WORKER_RESULT_TOTAL = Counter(
+    "email_worker_result_total",
+    "Total emails processed by the worker, labeled by result",
+    ["result"],
+)
+QUEUE_SIZE = Gauge(
+    "email_queue_size",
+    "Queue sizes by key",
+    ["queue"],
+)
 
 
 def signal_handler(signum, _frame):
@@ -51,6 +68,46 @@ def calculate_backoff_delay(
     return delay
 
 
+def _start_worker_metrics_server() -> None:
+    if not settings.metrics_enabled:
+        return
+
+    try:
+        start_http_server(settings.worker_metrics_port, addr=settings.worker_metrics_host)
+    except Exception:
+        logger.exception(
+            "Failed to start worker Prometheus metrics server on %s:%s",
+            settings.worker_metrics_host,
+            settings.worker_metrics_port,
+        )
+        return
+
+    logger.info(
+        "Worker Prometheus metrics enabled on %s:%s",
+        settings.worker_metrics_host,
+        settings.worker_metrics_port,
+    )
+
+
+async def poll_queue_metrics(poll_interval: float = 15.0) -> None:
+    """Update queue size gauges periodically."""
+    while not shutdown_flag:
+        try:
+            QUEUE_SIZE.labels(queue="queue").set(await queue_service.get_queue_size())
+            QUEUE_SIZE.labels(queue="processing").set(
+                await queue_service.get_processing_size()
+            )
+            QUEUE_SIZE.labels(queue="delayed").set(
+                await queue_service.get_delayed_size()
+            )
+            QUEUE_SIZE.labels(queue="dlq").set(await queue_service.get_dlq_size())
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.exception("Failed to update queue size metrics")
+        await asyncio.sleep(poll_interval)
+
+
 async def process_email(db: AsyncSession, email_id: str) -> bool:
     """
     Process a single email from the queue
@@ -68,12 +125,14 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         email = await email_service.get_by_id(db, email_id)
         if not email:
             logger.error("Email %s not found in database", email_id)
+            WORKER_RESULT_TOTAL.labels(result="missing").inc()
             await queue_service.complete(email_id)
             return False
         
         # Check if already sent
         if email.status == EmailStatus.SENT.value:
             logger.info("Email %s already sent, skipping", email_id)
+            WORKER_RESULT_TOTAL.labels(result="skipped").inc()
             await queue_service.complete(email_id)
             return True
         
@@ -87,6 +146,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                 email_id,
                 settings.max_retries,
             )
+            WORKER_RESULT_TOTAL.labels(result="dlq").inc()
             await email_service.update_status(
                 db, email_id, EmailStatus.DLQ,
                 error_message=dlq_reason,
@@ -109,6 +169,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         
         # Send email via SMTP
         logger.info("Sending email %s (retry: %s)", email_id, email.retry_count)
+        WORKER_SEND_ATTEMPT_TOTAL.inc()
         try:
             await smtp_service.send_email(
                 from_address=email.from_address,
@@ -128,6 +189,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             logger.exception("SMTP response error for email %s", email_id)
 
             if exc.code and exc.code in PERMANENT_SMTP_CODES:
+                WORKER_RESULT_TOTAL.labels(result="dlq").inc()
                 await email_service.update_status(
                     db, email_id, EmailStatus.DLQ,
                     error_message=f"Permanent SMTP error: {error_msg}",
@@ -146,6 +208,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                 settings.max_retry_delay_seconds,
                 settings.retry_delay_jitter_seconds,
             )
+            WORKER_RESULT_TOTAL.labels(result="retry").inc()
             await queue_service.requeue_delayed(email_id, delay_seconds)
             return False
         except SMTPException as exc:
@@ -162,6 +225,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                 settings.max_retry_delay_seconds,
                 settings.retry_delay_jitter_seconds,
             )
+            WORKER_RESULT_TOTAL.labels(result="retry").inc()
             await queue_service.requeue_delayed(email_id, delay_seconds)
             return False
 
@@ -170,10 +234,12 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         await queue_service.complete(email_id)
 
         logger.info("Successfully sent email %s", email_id)
+        WORKER_RESULT_TOTAL.labels(result="sent").inc()
         return True
         
     except RedisError:
         logger.exception("Redis error while processing email %s", email_id)
+        WORKER_RESULT_TOTAL.labels(result="redis_error").inc()
         raise
     except OperationalError as exc:
         db_error = True
@@ -192,6 +258,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                 settings.max_retries,
                 error_msg,
             )
+            WORKER_RESULT_TOTAL.labels(result="dlq").inc()
             await queue_service.move_to_dlq(
                 email_id,
                 f"Exceeded max DB error retries: {error_msg}",
@@ -210,11 +277,13 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             db_error_count,
             delay_seconds,
         )
+        WORKER_RESULT_TOTAL.labels(result="retry").inc()
         await queue_service.requeue_delayed(email_id, delay_seconds)
         return False
     except Exception as e:
         error_msg = str(e)
         logger.exception("Error processing email %s", email_id)
+        WORKER_RESULT_TOTAL.labels(result="error").inc()
         try:
             await db.rollback()
         except Exception:
@@ -276,6 +345,7 @@ async def worker():
 
     engine = None
     delayed_task = None
+    metrics_task = None
     AsyncSessionLocal = None
 
     try:
@@ -291,10 +361,18 @@ async def worker():
 
         logger.info("Worker started")
 
+        _start_worker_metrics_server()
+
         # Connect to queue
         await queue_service.connect()
 
         delayed_task = asyncio.create_task(poll_delayed_queue())
+        if settings.metrics_enabled:
+            metrics_task = asyncio.create_task(
+                poll_queue_metrics(
+                    poll_interval=float(settings.worker_metrics_poll_interval_seconds)
+                )
+            )
 
         while not shutdown_flag:
             try:
@@ -315,10 +393,22 @@ async def worker():
                     delayed_task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
                         await delayed_task
+                if metrics_task and not metrics_task.done():
+                    metrics_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await metrics_task
                 await queue_service.disconnect()
                 await asyncio.sleep(5)
                 await queue_service.connect()
                 delayed_task = asyncio.create_task(poll_delayed_queue())
+                if settings.metrics_enabled:
+                    metrics_task = asyncio.create_task(
+                        poll_queue_metrics(
+                            poll_interval=float(
+                                settings.worker_metrics_poll_interval_seconds
+                            )
+                        )
+                    )
             except Exception:
                 logger.exception("Error in worker loop")
                 await asyncio.sleep(5)  # Wait before retrying
@@ -329,6 +419,10 @@ async def worker():
             delayed_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await delayed_task
+        if metrics_task is not None:
+            metrics_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await metrics_task
         with contextlib.suppress(Exception):
             await queue_service.disconnect()
         if engine is not None:

@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     api_port: int = 8000
     debug: bool = False
 
+    # Metrics (Prometheus)
+    metrics_enabled: bool = True
+    metrics_path: str = "/metrics"
+    worker_metrics_host: str = "0.0.0.0"
+    worker_metrics_port: int = 8001
+    worker_metrics_poll_interval_seconds: int = 15
+
     # Admin/ops allowlist for queue stats endpoint (comma-separated caller ids)
     queue_stats_allowed_callers: str = ""
     

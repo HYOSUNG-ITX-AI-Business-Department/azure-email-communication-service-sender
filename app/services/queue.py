@@ -333,6 +333,18 @@ class QueueService:
             logger.exception("Failed to get DLQ size")
             raise
 
+    async def get_delayed_size(self) -> int:
+        """Get delayed retry queue size.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            return await self.redis_client.zcard(self.delayed_queue_key)
+        except redis.RedisError:
+            logger.exception("Failed to get delayed queue size")
+            raise
+
 
 # Global queue service instance
 queue_service = QueueService()
