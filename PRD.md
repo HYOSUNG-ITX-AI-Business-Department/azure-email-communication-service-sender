@@ -95,7 +95,7 @@ Initial targets (tune per environment and SMTP quotas):
 - Retry rate: ≤ 5% (24h rolling).
 - DLQ rate (dlq / total): ≤ 0.1% (24h rolling).
 - Mean time to recovery (MTTR) for dependency outages (Redis/DB/SMTP): ≤ 15 minutes (P1 incidents).
-- Duplicate-send incidents: 0; target < 1/month.
+- Duplicate-send incidents: ideal 0 (alert threshold: < 1/month).
 
 Measurement and alerting (recommended):
 - Collection: derive delivery/retry/DLQ rates from DB statuses and worker logs; track queue sizes via Redis (or the queue stats endpoint).
