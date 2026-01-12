@@ -221,12 +221,23 @@ Key environment variables:
   - Recommended: add a CI/CD gate that fails production deployments when `DEBUG=true` (example GitHub Actions):
 
     ```yaml
-    - name: Guard DEBUG in production
+    - name: Guard unsafe configuration (production)
       run: |
         if [ "${DEBUG:-false}" = "true" ]; then
           echo "ERROR: DEBUG=true is not allowed in production"
           exit 1
         fi
+
+        # Fail if real .env files are committed (tune for your repo).
+        if git ls-files | grep -E '^\\.env(\\.|$)' | grep -vq '^\\.env\\.example$'; then
+          echo "ERROR: real .env files must not be committed"
+          git ls-files | grep -E '^\\.env(\\.|$)' | grep -v '^\\.env\\.example$'
+          exit 1
+        fi
+
+        # Ensure required secrets are injected (typically via CI secret store).
+        : "${SMTP_PASSWORD:?SMTP_PASSWORD must be set}"
+        : "${DATABASE_URL:?DATABASE_URL must be set}"
     ```
 
     Adapt this check to validate the final deploy-time environment/config in your CI system.
