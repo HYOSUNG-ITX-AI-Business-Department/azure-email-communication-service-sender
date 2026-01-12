@@ -312,6 +312,10 @@ Key environment variables:
 - Check health/readiness: `curl -fsS http://<host>:8000/health` and `curl -fsS http://<host>:8000/ready`
 - Check queue stats endpoint (requires allowlist): `curl -H 'X-Caller-Id: <ops-id>' http://<host>:8000/api/v1/emails/`
 - Inspect Redis queues: `redis-cli LLEN email:queue`, `redis-cli LLEN email:processing`, `redis-cli LLEN email:dlq`, `redis-cli ZCARD email:delayed`
+- Safety notes (before requeueing):
+  - Confirm the id is not actively being processed (check worker logs/health) before requeueing from `email:processing` to avoid duplicate sends.
+  - Fix the root cause (SMTP auth, configuration, payload validation) before requeueing DLQ items, otherwise they will likely fail again.
+  - Monitor DLQ size and failure rates after requeue to catch recurrence quickly.
 - Manual requeue from processing:
   - Move one item (Redis 6.2+): `redis-cli LMOVE email:processing email:queue RIGHT LEFT`
   - Move a specific id: `redis-cli LREM email:processing 1 <email_id> && redis-cli LPUSH email:queue <email_id>`
