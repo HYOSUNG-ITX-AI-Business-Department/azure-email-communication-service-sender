@@ -144,6 +144,14 @@
 - `email:delayed`: delayed retry schedule (sorted set)
 - `email:dlq`: dead letter queue (list of JSON objects with `email_id` and `error`, e.g. `{"email_id":"...","error":"..."}`)
 
+### Retention / TTL (production guidance)
+
+- Redis Lists do not support per-item TTL. Key-level `EXPIRE` on `email:queue` / `email:processing` can drop unprocessed work and should only be used when you also have a reconciliation/outbox strategy.
+- Recommended:
+  - Implement a processing visibility timeout + reaper for `email:processing` (see Production readiness notes at the top of this document).
+  - Periodically reconcile Redis queue entries against DB state and retention policy (e.g., remove ids that reference missing/deleted records).
+  - Define a DLQ retention/archival policy (e.g., export to a durable store and cap in-Redis DLQ size via `LTRIM`).
+
 ### Startup Scripts
 
 `QueueService.connect()` registers Lua scripts used by:
@@ -231,6 +239,7 @@ Key environment variables:
       - If your retention is shorter than the window, idempotency can break early (records/keys disappear before the window ends).
       - If your retention is longer than the window, you likely need explicit key expiry/cleanup (or a separate idempotency store) so keys can expire before the underlying email records are deleted.
 - Operations (suggested future options):
+  - Queue retention: `PROCESSING_VISIBILITY_TIMEOUT_SECONDS`, `QUEUE_STALE_ITEM_MAX_AGE_HOURS`, `DLQ_MAX_ITEMS`, `DLQ_RETENTION_DAYS`
   - Worker tuning: `WORKER_COUNT`, `BATCH_SIZE`
   - Logging: `LOG_LEVEL`, `LOG_FORMAT`, `LOG_OUTPUT`
   - Keep a separate security/ops guide for production deployments.
