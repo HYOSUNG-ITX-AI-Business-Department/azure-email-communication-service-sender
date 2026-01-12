@@ -50,9 +50,9 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Metrics (Prometheus)
-    metrics_enabled: bool = True
+    metrics_enabled: bool = False
     metrics_path: str = "/metrics"
-    worker_metrics_host: str = "0.0.0.0"
+    worker_metrics_host: str = "127.0.0.1"
     worker_metrics_port: int = 8001
     worker_metrics_poll_interval_seconds: int = 15
 

@@ -316,6 +316,7 @@
     - API: `/metrics` (enable via `METRICS_ENABLED`, path via `METRICS_PATH`)
     - Worker: Prometheus server on `WORKER_METRICS_HOST:WORKER_METRICS_PORT` (queue size gauges updated every `WORKER_METRICS_POLL_INTERVAL_SECONDS`)
       - Multi-worker note: if you run multiple worker processes on the same host, either assign distinct `WORKER_METRICS_PORT` values per process, or enable Prometheus python-client multiprocess mode by setting `PROMETHEUS_MULTIPROC_DIR` and scraping a single shared endpoint.
+    - Security: do not expose metrics endpoints publicly; use network access controls (private VNet, security groups, k8s NetworkPolicy) and/or an authenticated metrics gateway/proxy.
   - Optional: OpenTelemetry (not implemented in this repo yet).
   - Interim: derive from DB statuses + logs; use Redis queries (or the queue stats endpoint) for queue sizes.
 - Cadence: collect at 15–60s intervals and roll up to 1m/5m windows for SLO tracking.
@@ -483,9 +484,9 @@ Key environment variables:
   - `API_PORT` (optional, int, default: `8000`)
   - `DEBUG` (optional, bool, default: `false`; also controls uvicorn reload and dev-only DB auto-creation)
 - Metrics:
-  - `METRICS_ENABLED` (optional, bool, default: `true`)
+  - `METRICS_ENABLED` (optional, bool, default: `false`)
   - `METRICS_PATH` (optional, string, default: `/metrics`)
-  - Worker exporter: `WORKER_METRICS_HOST` (optional, string, default: `0.0.0.0`), `WORKER_METRICS_PORT` (optional, int, default: `8001`), `WORKER_METRICS_POLL_INTERVAL_SECONDS` (optional, int, default: `15`)
+  - Worker exporter: `WORKER_METRICS_HOST` (optional, string, default: `127.0.0.1`), `WORKER_METRICS_PORT` (optional, int, default: `8001`), `WORKER_METRICS_POLL_INTERVAL_SECONDS` (optional, int, default: `15`)
 - Idempotency (suggested future option):
   - `IDEMPOTENCY_WINDOW_HOURS` (optional, int, default: `24`)
     - Implementation status: not implemented in this repo (planned). Current behavior is “as long as the email record exists” (DB uniqueness on `caller_id + idempotency_key`).
