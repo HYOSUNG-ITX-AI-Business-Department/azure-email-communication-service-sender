@@ -339,16 +339,16 @@ Key environment variables:
       - Per-email lock (Redis `SET NX EX`) around the send path:
 
         ```python
-        lock_key = f\"email:lock:{email_id}\"
+        lock_key = f"email:lock:{email_id}"
         token = uuid4().hex
         if not redis.set(lock_key, token, nx=True, ex=60):
-            return \"locked\"  # skip/requeue/backoff
+            return "locked"  # skip/requeue/backoff
 
         try:
             send_email(email_id)
         finally:
             redis.eval(
-                \"if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0\",
+                "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0",
                 1,
                 lock_key,
                 token,
