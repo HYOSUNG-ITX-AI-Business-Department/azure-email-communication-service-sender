@@ -170,6 +170,7 @@ Key environment variables:
   - `SMTP_HOST` (optional, string, default: `smtp.azurecomm.net`)
   - `SMTP_PORT` (optional, int, default: `587`; port `25` may also be supported depending on provider/network policy)
   - `SMTP_USERNAME` (required, string)
+    - ACS note: treat as an opaque, ACS-provisioned SMTP username (copy from the Azure Portal “SMTP Usernames” blade). See [Microsoft Learn: SMTP authentication](https://learn.microsoft.com/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication).
   - `SMTP_PASSWORD` (required, string; secret)
   - Auth: this implementation uses SMTP AUTH (username + password). Token-based SMTP auth (e.g., XOAUTH2) is not supported by the SMTP client in this repo today.
   - Azure prerequisites: provisioning SMTP usernames/secrets requires Azure RBAC on the Communication Services resource; use a built-in Contributor/Owner role or a custom role with at least `Microsoft.Communication/CommunicationServices/read`, `Microsoft.Communication/CommunicationServices/write`, and the SMTP username operations you need (domain/sender management may require `Microsoft.Communication/EmailServices/*`).
