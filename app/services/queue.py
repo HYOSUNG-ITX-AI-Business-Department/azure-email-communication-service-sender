@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-import asyncio
 
 import redis.asyncio as redis
 
@@ -61,6 +61,30 @@ class QueueService:
     return 0
     """
 
+    REAP_PROCESSING_SCRIPT = """
+    local processing_key = KEYS[1]
+    local queue_key = KEYS[2]
+    local vis_key = KEYS[3]
+    local now = tonumber(ARGV[1])
+    local max_batch = tonumber(ARGV[2])
+
+    local expired = redis.call('ZRANGEBYSCORE', vis_key, 0, now, 'LIMIT', 0, max_batch)
+    if #expired == 0 then
+        return 0
+    end
+
+    redis.call('ZREM', vis_key, unpack(expired))
+    local moved = 0
+    for _, email_id in ipairs(expired) do
+        local removed = redis.call('LREM', processing_key, 1, email_id)
+        if removed > 0 then
+            redis.call('LPUSH', queue_key, email_id)
+            moved = moved + 1
+        end
+    end
+    return moved
+    """
+
     MOVE_READY_DELAYED_SCRIPT = """
     local delayed_key = KEYS[1]
     local queue_key = KEYS[2]
@@ -84,6 +108,7 @@ class QueueService:
         self.redis_client = None
         self.queue_key = "email:queue"
         self.processing_key = "email:processing"
+        self.processing_visibility_key = "email:processing:vis"
         self.dlq_key = "email:dlq"
         self.delayed_queue_key = "email:delayed"
         # Tracks IDs that are expected to be queued (or delayed) to support the sweeper job.
@@ -93,6 +118,7 @@ class QueueService:
         self._requeue_script = None
         self._requeue_delayed_script = None
         self._move_ready_delayed_script = None
+        self._reap_processing_script = None
 
     def _db_error_key(self, email_id: str) -> str:
         return f"{self.db_error_key_prefix}:{email_id}"
@@ -115,6 +141,9 @@ class QueueService:
         )
         self._move_ready_delayed_script = self.redis_client.register_script(
             self.MOVE_READY_DELAYED_SCRIPT
+        )
+        self._reap_processing_script = self.redis_client.register_script(
+            self.REAP_PROCESSING_SCRIPT
         )
         logger.info("Connected to Redis")
     
@@ -200,8 +229,59 @@ class QueueService:
             raise
         if result:
             logger.info("Dequeued email %s", result)
+        if result:
+            await self.refresh_processing_visibility(result)
         return result
     
+    async def refresh_processing_visibility(
+        self, email_id: str, *, timeout_seconds: int | None = None
+    ) -> None:
+        """Refresh visibility timeout for a processing email id.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        if timeout_seconds is None:
+            timeout_seconds = int(settings.processing_visibility_timeout_seconds)
+        score = time.time() + timeout_seconds
+        try:
+            await self.redis_client.zadd(
+                self.processing_visibility_key,
+                {email_id: score},
+            )
+        except redis.RedisError:
+            logger.exception("Failed to refresh processing visibility for %s", email_id)
+            raise
+
+    async def reap_processing(self, max_batch: int | None = None) -> int:
+        """Reap expired processing ids back to the main queue.
+
+        Returns:
+            int: number of ids moved back to queue.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        if max_batch is None:
+            max_batch = int(settings.processing_reaper_batch_size)
+        now = time.time()
+        try:
+            moved = await self._reap_processing_script(
+                keys=[
+                    self.processing_key,
+                    self.queue_key,
+                    self.processing_visibility_key,
+                ],
+                args=[now, max_batch],
+            )
+        except redis.RedisError:
+            logger.exception("Failed to reap processing queue")
+            raise
+        moved = int(moved or 0)
+        if moved > 0:
+            logger.warning("Reaped %d stuck processing emails back to queue", moved)
+        return moved
+
     async def complete(self, email_id: str):
         """Remove email from processing set after successful send.
 
@@ -212,6 +292,7 @@ class QueueService:
         """
         try:
             await self.redis_client.lrem(self.processing_key, 1, email_id)
+            await self.redis_client.zrem(self.processing_visibility_key, email_id)
         except redis.RedisError:
             logger.exception("Failed to complete email %s", email_id)
             raise

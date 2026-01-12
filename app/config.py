@@ -69,6 +69,12 @@ class Settings(BaseSettings):
     sweeper_batch_size: int = 100
     sweeper_max_requeue_attempts: int = 10
 
+    # Processing visibility timeout / reaper
+    processing_reaper_enabled: bool = False
+    processing_reaper_interval_seconds: int = 60
+    processing_visibility_timeout_seconds: int = Field(default=300, ge=1)
+    processing_reaper_batch_size: int = Field(default=100, ge=1)
+
     # Admin/ops allowlist for queue stats endpoint (comma-separated caller ids)
     queue_stats_allowed_callers: str = ""
     
