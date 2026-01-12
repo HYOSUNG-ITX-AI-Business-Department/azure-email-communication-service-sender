@@ -1,9 +1,17 @@
-import redis.asyncio as redis
-from app.config import settings
+from __future__ import annotations
+
 import json
 import logging
 import time
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+import redis.asyncio as redis
+
+from app.config import settings
+
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -431,9 +439,10 @@ else
 end
 """
 
-    def __init__(self, redis, *, key_prefix: str = "email:lock:") -> None:
+    def __init__(self, redis: "Redis", *, key_prefix: str = "email:lock:") -> None:
         self._redis = redis
         self._key_prefix = key_prefix
+        self._release_script = None
 
     async def acquire(self, name: str, *, token: str, ttl_seconds: int) -> bool:
         key = f"{self._key_prefix}{name}"
@@ -443,5 +452,12 @@ end
 
     async def release(self, name: str, *, token: str) -> bool:
         key = f"{self._key_prefix}{name}"
+        register_script = getattr(self._redis, "register_script", None)
+        if register_script is not None:
+            if self._release_script is None:
+                self._release_script = register_script(self._RELEASE_LUA)
+            deleted = await self._release_script(keys=[key], args=[token])
+            return bool(deleted)
+
         deleted = await self._redis.eval(self._RELEASE_LUA, 1, key, token)
         return bool(deleted)

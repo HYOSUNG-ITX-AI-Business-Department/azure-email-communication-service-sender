@@ -408,7 +408,7 @@ class EmailService:
         )
         result = await db.execute(stmt)
         await db.commit()
-        return bool(getattr(result, "rowcount", 0))
+        return bool(result.rowcount)
 
     async def update_status(
         self,

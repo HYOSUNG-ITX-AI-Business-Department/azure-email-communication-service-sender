@@ -43,6 +43,14 @@ WORKER_RESULT_TOTAL = Counter(
     "Total emails processed by the worker, labeled by result",
     ["result"],
 )
+WORKER_LOCK_ACQUIRED = Counter(
+    "email_worker_lock_acquired_total",
+    "Total number of per-email lock acquisitions by the worker",
+)
+WORKER_LOCK_CONTENDED = Counter(
+    "email_worker_lock_contended_total",
+    "Total number of per-email lock contention events by the worker",
+)
 QUEUE_SIZE = Gauge(
     "email_queue_size",
     "Queue sizes by key",
@@ -184,13 +192,12 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             )
             if not acquired:
                 logger.info("Lock contended for email %s; requeue delayed", email_id)
-                WORKER_RESULT_TOTAL.labels(result="lock_contended").inc()
-                await queue_service.requeue_delayed(
-                    email_id,
-                    int(settings.worker_lock_contended_delay_seconds),
-                )
+                WORKER_LOCK_CONTENDED.inc()
+                base_delay = int(settings.worker_lock_contended_delay_seconds)
+                jitter = random.randint(0, max(1, base_delay))
+                await queue_service.requeue_delayed(email_id, base_delay + jitter)
                 return False
-            WORKER_RESULT_TOTAL.labels(result="lock_acquired").inc()
+            WORKER_LOCK_ACQUIRED.inc()
 
         # Get email record
         email = await email_service.get_by_id(db, email_id)
@@ -229,6 +236,9 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             )
             return False
         
+        # NOTE: transition_fn fallback exists for rolling deploy compatibility.
+        # Once all deployments include transition_to_sending, remove this branch.
+        # Symbols: transition_to_sending, transition_fn, email_service, update_status, EmailStatus.SENDING
         transition_fn = getattr(email_service, "transition_to_sending", None)
         if transition_fn is not None:
             transitioned = await transition_fn(db, email_id)
