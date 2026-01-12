@@ -105,7 +105,7 @@ class SweeperService:
                 sweeper_skipped_total.inc()
                 continue
 
-            sweeper_requeue_count = getattr(record, "sweeper_requeue_count", 0) or 0
+            sweeper_requeue_count = record.sweeper_requeue_count or 0
             if sweeper_requeue_count >= self.max_requeue_attempts:
                 self._failed_total += 1
                 sweeper_failed_total.inc()
