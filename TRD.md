@@ -233,6 +233,14 @@ Key environment variables:
 - Deploy order: API first (stateless), then workers; roll out gradually while monitoring error rates and queue metrics.
 - Rollback: revert application versions; if migrations were applied, follow the DB rollback plan and verify schema compatibility.
 
+### Metrics, Dashboards, and Alerts
+
+- Collection (recommended 1-minute granularity):
+  - Delivery/retry/DLQ rates: derive from DB statuses and worker logs.
+  - Queue metrics: track `email:queue`, `email:processing`, `email:dlq`, and `email:delayed` sizes.
+- Dashboards: maintain both SLO views (PRD Success Metrics) and operational views (queue sizes, latency, error codes).
+- Alerts: trigger on sustained SLO breaches and the Monitoring/alerting thresholds listed above; define P1/P2 escalation paths.
+
 ### Useful Commands (Examples)
 
 - Check health/readiness: `curl -fsS http://<host>:8000/health` and `curl -fsS http://<host>:8000/ready`

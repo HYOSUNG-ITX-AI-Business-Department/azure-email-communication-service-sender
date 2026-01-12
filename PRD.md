@@ -81,10 +81,17 @@ Teams need a reliable, auditable way to send transactional email without embeddi
 
 ## Success Metrics
 
-- Successful delivery rate (sent / total).
-- Retry rate and DLQ volume.
-- Mean time to recovery (MTTR) for dependency outages (Redis/DB/SMTP).
-- Duplicate-send incidents (should be near zero given idempotency + queue discipline).
+Initial targets (tune per environment and SMTP quotas):
+- Successful delivery rate (sent / total): ≥ 99.9% (24h rolling).
+- Retry rate: ≤ 5% (24h rolling).
+- DLQ rate (dlq / total): ≤ 0.1% (24h rolling).
+- Mean time to recovery (MTTR) for dependency outages (Redis/DB/SMTP): ≤ 15 minutes (P1 incidents).
+- Duplicate-send incidents: 0; target < 1/month.
+
+Measurement and alerting (recommended):
+- Collection: derive delivery/retry/DLQ rates from DB statuses and worker logs; track queue sizes via Redis (or the queue stats endpoint).
+- Frequency: collect at 1-minute granularity and review trends regularly.
+- Dashboards/alerts: implement dashboards for delivery rate, retry/DLQ rate, queue sizes, and latency; alert when targets/thresholds are breached (see TRD runbook for playbooks).
 
 ## Open Questions
 
