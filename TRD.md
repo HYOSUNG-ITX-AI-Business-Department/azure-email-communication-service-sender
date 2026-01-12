@@ -170,9 +170,17 @@ Key environment variables:
     - Rotation checklist: rotate credentials, update vault/CI secrets, deploy, verify sends, keep a rollback plan.
   - TLS: SMTP sending uses STARTTLS with certificate validation enabled; ensure the runtime has an appropriate CA bundle.
 - Security:
-  - `ALLOWED_MAILFROM` (required, comma-separated string; must contain at least one valid address)
+  - `ALLOWED_MAILFROM` (required, comma-separated string)
+    - Format: `local@domain` (wildcards are not supported).
+    - Normalization: domain is lowercased; local-part is preserved.
+    - Example: `noreply@example.com,support@example.com`
   - `ALLOWED_HEADERS` (optional, comma-separated string; required when sending custom headers)
+    - Matching: case-insensitive against request header names.
+    - Example: `X-Priority,X-Custom-Tag`
+    - Validation: request header names/values reject CR/LF (`\r`/`\n`) to prevent injection.
   - `QUEUE_STATS_ALLOWED_CALLERS` (optional, comma-separated string; required to enable queue stats endpoint)
+    - Format: caller IDs matched against the `X-Caller-Id` header.
+    - Example: `ops-service,admin-dashboard`
 - Infra:
   - `REDIS_URL` (optional, string URL, default: `redis://localhost:6379/0`)
   - `DATABASE_URL` (optional, string URL, default: `postgresql+asyncpg://emailuser@localhost:5432/emails`)
