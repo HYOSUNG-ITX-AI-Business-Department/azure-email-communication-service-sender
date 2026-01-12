@@ -37,6 +37,9 @@
   - Per-caller: composite uniqueness on `caller_id + idempotency_key`.
   - Avoids duplicate enqueue on idempotency replay by queueing only when status is `pending`.
   - Known limitation: near-simultaneous requests may both enqueue before the record transitions out of `pending`; see Production Considerations for mitigations.
+- Validation/security:
+  - `envelope_from` must be allowlisted via `ALLOWED_MAILFROM`.
+  - Custom headers are allowlisted via `ALLOWED_HEADERS` (case-insensitive match) and CR/LF characters are rejected in header names/values to prevent injection.
 
 ### `GET /api/v1/emails/{email_id}`
 
