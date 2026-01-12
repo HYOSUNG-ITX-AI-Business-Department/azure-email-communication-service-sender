@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.email import EmailRecord
@@ -382,6 +382,34 @@ class EmailService:
         )
         return result.scalar_one_or_none()
     
+    async def transition_to_sending(self, db: AsyncSession, email_id: str) -> bool:
+        """Atomically transition an email to SENDING.
+
+        Returns True if we performed the transition; False if another worker already
+        transitioned it or it is not eligible for sending.
+        """
+        now = datetime.now(timezone.utc)
+        stmt = (
+            update(EmailRecord)
+            .where(
+                EmailRecord.id == email_id,
+                EmailRecord.status.in_(
+                    [
+                        EmailStatus.PENDING.value,
+                        EmailStatus.QUEUED.value,
+                        EmailStatus.FAILED.value,
+                    ]
+                ),
+            )
+            .values(
+                status=EmailStatus.SENDING.value,
+                updated_at=now,
+            )
+        )
+        result = await db.execute(stmt)
+        await db.commit()
+        return bool(getattr(result, "rowcount", 0))
+
     async def update_status(
         self,
         db: AsyncSession,
@@ -389,43 +417,45 @@ class EmailService:
         status: EmailStatus,
         error_message: str | None = None,
         *,
-        increment_retry: bool = False
+        increment_retry: bool = False,
     ) -> EmailRecord:
         """Update email status with audit trail"""
         email = await self.get_by_id(db, email_id)
         if not email:
             raise EmailNotFoundError(email_id)
-        
+
         # Update status
         email.status = status.value
         email.updated_at = datetime.now(timezone.utc)
-        
+
         if error_message is not None:
             email.error_message = error_message
-        
+
         if increment_retry:
             email.retry_count += 1
-        
+
         if status == EmailStatus.SENT:
             email.sent_at = datetime.now(timezone.utc)
-        
+
         # Update audit log
         audit_log = self._parse_audit_log(email.audit_log, email_id)
-        audit_log.append({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "status": status.value,
-            "message": (
-                error_message
-                if error_message is not None
-                else f"Status updated to {status.value}"
-            ),
-            "retry_count": email.retry_count
-        })
+        audit_log.append(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "status": status.value,
+                "message": (
+                    error_message
+                    if error_message is not None
+                    else f"Status updated to {status.value}"
+                ),
+                "retry_count": email.retry_count,
+            }
+        )
         email.audit_log = audit_log
-        
+
         await db.commit()
         await db.refresh(email)
-        
+
         logger.info("Updated email %s status to %s", email_id, status.value)
         return email
 

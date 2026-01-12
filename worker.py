@@ -229,10 +229,16 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             )
             return False
         
-        # Update status to sending (best-effort idempotency guard)
-        # If status was already transitioned by another worker, this should become a no-op
-        # in the underlying email_service implementation.
-        await email_service.update_status(db, email_id, EmailStatus.SENDING)
+        transition_fn = getattr(email_service, "transition_to_sending", None)
+        if transition_fn is not None:
+            transitioned = await transition_fn(db, email_id)
+            if not transitioned:
+                logger.info("Email %s already being processed, skipping", email_id)
+                WORKER_RESULT_TOTAL.labels(result="skipped").inc()
+                await queue_service.complete(email_id)
+                return False
+        else:
+            await email_service.update_status(db, email_id, EmailStatus.SENDING)
         
         # Load addresses and metadata
         to_addresses = email.to_addresses
