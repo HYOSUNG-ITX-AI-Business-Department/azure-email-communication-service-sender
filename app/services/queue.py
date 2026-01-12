@@ -443,5 +443,5 @@ end
 
     async def release(self, name: str, *, token: str) -> bool:
         key = f"{self._key_prefix}{name}"
-        deleted = await self._redis.eval(self._RELEASE_LUA, numkeys=1, keys=[key], args=[token])
+        deleted = await self._redis.eval(self._RELEASE_LUA, 1, key, token)
         return bool(deleted)

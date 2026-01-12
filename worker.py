@@ -190,6 +190,7 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
                     int(settings.worker_lock_contended_delay_seconds),
                 )
                 return False
+            WORKER_RESULT_TOTAL.labels(result="lock_acquired").inc()
 
         # Get email record
         email = await email_service.get_by_id(db, email_id)
@@ -228,7 +229,9 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
             )
             return False
         
-        # Update status to sending
+        # Update status to sending (best-effort idempotency guard)
+        # If status was already transitioned by another worker, this should become a no-op
+        # in the underlying email_service implementation.
         await email_service.update_status(db, email_id, EmailStatus.SENDING)
         
         # Load addresses and metadata
@@ -397,11 +400,23 @@ async def process_email(db: AsyncSession, email_id: str) -> bool:
         return False
     finally:
         if acquired and lock is not None:
-            with contextlib.suppress(RedisError):
+            try:
                 await lock.release(email_id, token=token)
+            except RedisError as exc:
+                logger.warning(
+                    "Failed to release lock for email_id=%s: %s",
+                    email_id,
+                    exc,
+                )
         if not db_error:
-            with contextlib.suppress(RedisError):
+            try:
                 await queue_service.clear_db_error_count(email_id)
+            except RedisError as exc:
+                logger.warning(
+                    "Failed to clear DB error count for email_id=%s: %s",
+                    email_id,
+                    exc,
+                )
 
 
 async def poll_delayed_queue(poll_interval: float = 1.0, batch_size: int = 100) -> None:

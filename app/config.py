@@ -1,5 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ConfigurationError(ValueError):
@@ -57,8 +59,8 @@ class Settings(BaseSettings):
     worker_metrics_poll_interval_seconds: int = 15
 
     # Per-email distributed lock (duplicate send prevention)
-    worker_lock_ttl_seconds: int = 120
-    worker_lock_contended_delay_seconds: int = 5
+    worker_lock_ttl_seconds: int = Field(default=120, ge=1)
+    worker_lock_contended_delay_seconds: int = Field(default=5, ge=0)
 
     # Sweeper (DB/queue reconciliation)
     sweeper_enabled: bool = False
