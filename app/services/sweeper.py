@@ -55,6 +55,15 @@ class SweeperService:
     missing work safely (at-least-once), leveraging queued-set membership.
     """
 
+    def _log_progress(self) -> None:
+        logger.info(
+            "Sweeper progress: failed_total=%s requeued_total=%s skipped_total=%s errored_total=%s",
+            self._failed_total,
+            self._requeued_total,
+            self._skipped_total,
+            self._errored_total,
+        )
+
     def __init__(
         self,
         *,
@@ -143,13 +152,7 @@ class SweeperService:
                         self._failed_total += 1
                         sweeper_failed_total.inc()
                         if self._failed_total % SWEEPER_FAILED_TOTAL_LOG_EVERY == 0:
-                            logger.info(
-                                "Sweeper progress: failed_total=%s requeued_total=%s skipped_total=%s errored_total=%s",
-                                self._failed_total,
-                                self._requeued_total,
-                                self._skipped_total,
-                                self._errored_total,
-                            )
+                            self._log_progress()
                     except Exception:
                         self._errored_total += 1
                         sweeper_errored_total.inc()
@@ -186,13 +189,7 @@ class SweeperService:
                 sweeper_requeued_total.inc()
 
                 if self._requeued_total % SWEEPER_REENQUEUE_TOTAL_LOG_EVERY == 0:
-                    logger.info(
-                        "Sweeper progress: failed_total=%s requeued_total=%s skipped_total=%s errored_total=%s",
-                        self._failed_total,
-                        self._requeued_total,
-                        self._skipped_total,
-                        self._errored_total,
-                    )
+                    self._log_progress()
 
             if requeued:
                 logger.info(
