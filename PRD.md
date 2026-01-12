@@ -50,6 +50,14 @@ Teams need a reliable, auditable way to send transactional email without embeddi
   - For a given `caller_id` and `idempotency_key`, reuse the existing record when payload matches.
   - Reject reuse with different payloads.
   - Avoid duplicate queueing on idempotency replays.
+  - Payload match definition (canonical comparison):
+    - Compare: `from`, `envelope_from`, `to`/`cc`/`bcc` (case-insensitive address lists), `subject`, `body`, `html`, `reply_to`, `smtp_auth_profile_id`, `headers` (case-insensitive header names), `tags`, `attachments`.
+    - Exclude: server-generated timestamps, delivery state, retry counters, and other volatile fields.
+  - Error semantics:
+    - On mismatch: return 409 Conflict (error format: `{"detail":"..."}`).
+    - On match: return the existing record; do not enqueue again unless the existing record is still `pending`.
+  - Retention:
+    - Idempotency is retained at least for the email record retention window (recommended minimum: 7 days; configurable; align with compliance needs).
 
 ### Status API
 
