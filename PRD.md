@@ -28,6 +28,99 @@ Teams need a reliable, auditable way to send transactional email without embeddi
 - **Internal microservices** submitting transactional emails (receipts, alerts, password resets).
 - **Operators/SREs** monitoring queue sizes, failures, and service health.
 
+## Architecture Diagrams
+
+### System Overview
+
+```mermaid
+flowchart LR
+  client[Internal service] -->|POST /api/v1/emails| api[Sender API (FastAPI)]
+  api -->|persist| db[(Postgres)]
+  api -->|enqueue email_id| redis[(Redis/Valkey)]
+  worker[Worker] -->|BLMOVE / processing| redis
+  worker -->|load/update status| db
+  worker -->|SMTP + STARTTLS| acs[ACS SMTP Relay]
+```
+
+### Email Submission (Happy Path)
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant A as Sender API
+  participant D as DB
+  participant R as Redis
+  participant W as Worker
+  participant S as ACS SMTP
+
+  C->>A: POST /api/v1/emails (X-Caller-Id)
+  A->>D: INSERT email (pending) / idempotency check
+  D-->>A: email_id + created_at
+  A->>D: UPDATE status=queued
+  A->>R: LPUSH email:queue email_id
+  A-->>C: 202 {email_id,status}
+
+  W->>R: BLMOVE queue→processing
+  W->>D: SELECT email_id
+  W->>D: UPDATE status=sending
+  W->>S: SMTP send (MAIL FROM = envelope_from)
+  S-->>W: 250 OK
+  W->>D: UPDATE status=sent (+sent_at)
+  W->>R: LREM email:processing email_id
+```
+
+### Retry and DLQ (Failure Path)
+
+```mermaid
+sequenceDiagram
+  participant W as Worker
+  participant D as DB
+  participant R as Redis
+  participant S as ACS SMTP
+
+  W->>D: UPDATE status=sending
+  W->>S: SMTP send
+  alt transient error
+    S-->>W: 4xx / retryable exception
+    W->>D: UPDATE status=failed (+retry_count)
+    W->>R: ZADD email:delayed (ready_at = now+backoff)
+  else permanent error or retry exhausted
+    S-->>W: 5xx permanent / retries exhausted
+    W->>D: UPDATE status=dlq (+error)
+    W->>R: LPUSH email:dlq {email_id,error,dlq_at}
+  end
+```
+
+### Status Transitions
+
+```mermaid
+stateDiagram-v2
+  [*] --> pending
+  pending --> queued: enqueued
+  queued --> sending: worker starts
+  sending --> sent: SMTP ok
+  sending --> failed: retryable error
+  failed --> queued: delayed requeue
+  failed --> dlq: retries exhausted
+  sending --> dlq: permanent error
+  dlq --> [*]
+  sent --> [*]
+```
+
+### Idempotency Flow (caller_id + idempotency_key)
+
+```mermaid
+flowchart TD
+  start([POST /api/v1/emails]) --> k{Has idempotency_key?}
+  k -- no --> create[Create new email record]
+  k -- yes --> lookup[Lookup existing record]
+  lookup --> e{Exists?}
+  e -- no --> create
+  e -- yes --> match{Payload matches?}
+  match -- no --> conflict[409 Conflict]
+  match -- yes --> returnExisting[Return existing record (no re-enqueue unless pending)]
+```
+
 ## Functional Requirements
 
 ### Email submission API
