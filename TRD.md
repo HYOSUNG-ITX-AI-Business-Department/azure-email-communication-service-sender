@@ -86,7 +86,8 @@
 - Recommended production requirements:
   - Prefer structured JSON logs; include `email_id`, `caller_id`, `status`, `retry_count`, and error metadata.
   - Use levels consistently: INFO for normal transitions, WARN for recoverable anomalies, ERROR for failures.
-  - Mask PII: do not log message bodies/attachments; redact or hash email addresses when possible.
+  - Mask PII: never log message bodies, attachments, or email addresses; log only internal identifiers (`email_id`, `caller_id`).
+  - Never log custom headers or header values; they can contain auth tokens or other sensitive data.
 
 ### Tracing
 
