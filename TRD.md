@@ -374,30 +374,33 @@ Key environment variables:
 - Dashboards: maintain both SLO views (PRD Success Metrics) and operational views (queue sizes, latency, error codes).
 - Alerts: trigger on sustained SLO breaches and the Monitoring/alerting thresholds listed above; define P1/P2 escalation paths.
 
-### Useful Commands (Examples)
+### Useful Commands (Categorized)
 
-- Check health/readiness: `curl -fsS http://<host>:8000/health` and `curl -fsS http://<host>:8000/ready`
-- Check queue stats endpoint (requires allowlist): `curl -H 'X-Caller-Id: <ops-id>' http://<host>:8000/api/v1/emails/`
-- Inspect Redis queues: `redis-cli LLEN email:queue`, `redis-cli LLEN email:processing`, `redis-cli LLEN email:dlq`, `redis-cli ZCARD email:delayed`
-- Safety notes (before requeueing):
-  - Confirm the id is not actively being processed (check worker logs/health) before requeueing from `email:processing` to avoid duplicate sends.
-  - Fix the root cause (SMTP auth, configuration, payload validation) before requeueing DLQ items, otherwise they will likely fail again.
-  - Monitor DLQ size and failure rates after requeue to catch recurrence quickly.
-- Manual requeue from processing:
-  - Move one item (Redis 6.2+): `redis-cli LMOVE email:processing email:queue RIGHT LEFT`
-  - Move a specific id: `redis-cli LREM email:processing 1 <email_id> && redis-cli LPUSH email:queue <email_id>`
-- Inspect DLQ entries (JSON): `redis-cli --raw LRANGE email:dlq 0 10`
-- Requeue one DLQ item (after fixing root cause; requires `jq`):
-  - `redis-cli --raw LPOP email:dlq | jq -r '.email_id' | xargs -I {} redis-cli LPUSH email:queue {}`
-- Worker status/logs (docker-compose):
-  - `docker compose ps worker`
-  - `docker compose logs -f worker`
-- Find emails stuck in `sending` (Postgres example):
+- Monitoring (read-only; safe):
+  - Health/readiness: `curl -fsS http://<host>:8000/health` and `curl -fsS http://<host>:8000/ready` (Use: verify dependency status before/after deploys.)
+  - Queue stats endpoint (requires allowlist): `curl -H 'X-Caller-Id: <ops-id>' http://<host>:8000/api/v1/emails/` (Use: quick queue sizing without Redis access.)
+  - Redis queue sizes: `redis-cli LLEN email:queue`, `redis-cli LLEN email:processing`, `redis-cli LLEN email:dlq`, `redis-cli ZCARD email:delayed` (Use: monitor backpressure and DLQ growth.)
+  - Inspect DLQ entries (JSON): `redis-cli --raw LRANGE email:dlq 0 10` (Use: sample root causes from `error` values.)
+  - Worker status/logs (docker-compose): `docker compose ps worker` and `docker compose logs -f worker` (Use: confirm crash loops and correlate auth/network failures.)
+  - Find emails stuck in `sending` (Postgres example; investigation):
 
-  ```sql
-  SELECT id, status, updated_at
-  FROM emails
-  WHERE status = 'sending' AND updated_at < NOW() - INTERVAL '10 minutes'
-  ORDER BY updated_at ASC
-  LIMIT 50;
-  ```
+    ```sql
+    SELECT id, status, updated_at
+    FROM emails
+    WHERE status = 'sending' AND updated_at < NOW() - INTERVAL '10 minutes'
+    ORDER BY updated_at ASC
+    LIMIT 50;
+    ```
+
+- Recovery (write operations; use with caution):
+  - Safety checklist:
+    - Confirm the id is not actively being processed (check worker logs/health) before requeueing from `email:processing` to avoid duplicate sends.
+    - Fix the root cause (SMTP auth, configuration, payload validation) before requeueing DLQ items, otherwise they will likely fail again.
+    - Monitor DLQ size and failure rates after requeue to catch recurrence quickly.
+  - Manual requeue from processing (Use: recover ids stuck in `email:processing` after verifying they are not active):
+    - Move one item (Redis 6.2+): `redis-cli LMOVE email:processing email:queue RIGHT LEFT`
+    - Move a specific id: `redis-cli LREM email:processing 1 <email_id> && redis-cli LPUSH email:queue <email_id>`
+  - Requeue one DLQ item (Use: after fixing root cause; requires `jq`):
+    - `redis-cli --raw LPOP email:dlq | jq -r '.email_id' | xargs -I {} redis-cli LPUSH email:queue {}`
+
+- Runbook hygiene: perform periodic game days (e.g., quarterly) to validate procedures and update thresholds.
