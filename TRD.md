@@ -133,7 +133,7 @@
 - `email:queue`: pending work (list)
 - `email:processing`: in-flight work (list; populated via `BLMOVE`)
 - `email:delayed`: delayed retry schedule (sorted set)
-- `email:dlq`: dead letter queue (list of JSON items)
+- `email:dlq`: dead letter queue (list of JSON objects with `email_id` and `error`, e.g. `{"email_id":"...","error":"..."}`)
 
 ### Startup Scripts
 
