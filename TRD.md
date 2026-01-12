@@ -199,7 +199,18 @@ Key environment variables:
 - Database schema management:
   - `init_db()` uses SQLAlchemy `create_all` and is only invoked when `DEBUG=true`.
   - Production must keep `DEBUG=false` and run migrations (e.g., Alembic) as part of deploy.
-  - Recommended: add a CI/CD gate that fails production deployments when `DEBUG=true`.
+  - Recommended: add a CI/CD gate that fails production deployments when `DEBUG=true` (example GitHub Actions):
+
+    ```yaml
+    - name: Guard DEBUG in production
+      run: |
+        if [ "${DEBUG:-false}" = "true" ]; then
+          echo "ERROR: DEBUG=true is not allowed in production"
+          exit 1
+        fi
+    ```
+
+    Adapt this check to validate the final deploy-time environment/config in your CI system.
   - Risk: accidentally deploying with `DEBUG=true` can cause unintended schema drift (auto-creating tables) and make migrations/rollbacks unsafe.
 - Scaling and concurrency:
   - Current behavior:
