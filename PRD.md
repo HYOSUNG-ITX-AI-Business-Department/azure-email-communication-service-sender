@@ -102,6 +102,14 @@ Measurement and alerting (recommended):
 - Frequency: collect at 1-minute granularity and review trends regularly.
 - Dashboards/alerts: implement dashboards for delivery rate, retry/DLQ rate, queue sizes, and latency; alert when targets/thresholds are breached (see TRD runbook for playbooks).
 
+## References
+
+- ACS SMTP auth credentials: [Set up SMTP authentication for sending emails](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/send-email-smtp/smtp-authentication).
+- ACS SMTP overview: [Email SMTP overview](https://learn.microsoft.com/en-us/azure/communication-services/concepts/email/email-smtp-overview).
+- Send email via SMTP: [Send an email using SMTP](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/send-email-smtp/send-email-smtp).
+- Network troubleshooting: [Troubleshoot outbound SMTP connectivity in Azure](https://learn.microsoft.com/en-us/azure/virtual-network/troubleshoot-outbound-smtp-connectivity).
+- Sample: [Azure-Samples/acs-email-relay-quickstart](https://github.com/Azure-Samples/acs-email-relay-quickstart).
+
 ## Open Questions
 
 - Do we require a formal “admin/ops identity” mechanism beyond caller allowlists? (tracked in #6)

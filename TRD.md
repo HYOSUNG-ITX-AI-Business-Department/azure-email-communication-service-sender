@@ -211,6 +211,11 @@ Key environment variables:
 
     - Rotation checklist: rotate credentials, update vault/CI secrets, deploy, verify sends, keep a rollback plan.
   - TLS: SMTP sending uses STARTTLS with certificate validation enabled; ensure the runtime has an appropriate CA bundle and supports TLS 1.2+ (Azure requires TLS 1.2 or later).
+  - References:
+    - [Email SMTP overview](https://learn.microsoft.com/en-us/azure/communication-services/concepts/email/email-smtp-overview)
+    - [Send an email using SMTP](https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email/send-email-smtp/send-email-smtp)
+    - [Troubleshoot outbound SMTP connectivity in Azure](https://learn.microsoft.com/en-us/azure/virtual-network/troubleshoot-outbound-smtp-connectivity)
+    - [Azure-Samples/acs-email-relay-quickstart](https://github.com/Azure-Samples/acs-email-relay-quickstart)
 - Security:
   - `ALLOWED_MAILFROM` (required, comma-separated string)
     - Format: `local@domain` (wildcards are not supported).
