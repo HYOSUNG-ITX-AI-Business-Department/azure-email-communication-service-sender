@@ -554,8 +554,8 @@ Key environment variables:
     - Add a processing reaper/visibility timeout mechanism, or move to a queue primitive with visibility timeouts (e.g., Redis Streams consumer groups) if needed.
     - Add a per-email distributed lock and/or a stronger idempotent send guard in the worker (beyond “skip if sent”).
     - Consider an outbox/sweeper pattern to reconcile `queued` records and queue state.
-    - Implementation sketches (future work; copy-paste starting points):
-      - Processing reaper / visibility timeout (List + ZSET):
+    - Implementation sketches (future work; tracked separately from migration/runbook issue #8; copy-paste starting points):
+      - Processing reaper / visibility timeout (List + ZSET) (tracked in [issue #9](https://github.com/seonghobae/azure-email-communication-service-sender/issues/9)):
         - Keys: `email:queue` (list), `email:processing` (list), `email:processing:vis` (zset with score=expiry epoch seconds).
         - Worker flow: after dequeue, `ZADD email:processing:vis (now+timeout) <email_id>`; optionally refresh/heartbeat during long sends.
         - Reaper flow: run every 30–60s and move expired ids back to `email:queue` using a Lua script.
@@ -582,7 +582,7 @@ Key environment variables:
         return moved
         ```
 
-      - Per-email lock (Redis `SET NX EX`) around the send path:
+      - Per-email lock (Redis `SET NX EX`) around the send path (tracked in [issue #10](https://github.com/seonghobae/azure-email-communication-service-sender/issues/10)):
 
         ```python
         lock_key = f"email:lock:{email_id}"
@@ -601,7 +601,7 @@ Key environment variables:
             )
         ```
 
-      - Outbox/sweeper reconciliation job:
+      - Outbox/sweeper reconciliation job (tracked in [issue #11](https://github.com/seonghobae/azure-email-communication-service-sender/issues/11)):
         - Run every 1–5 minutes, batch (e.g., 100 ids).
         - Query: DB rows with `status='queued'` (or `pending`) older than a small grace window and re-enqueue missing work.
         - Implementation option: maintain an index key (e.g., `email:queued:set`) so the sweeper can `SISMEMBER` cheaply, or rely on the per-email lock/idempotent worker to tolerate duplicates.
