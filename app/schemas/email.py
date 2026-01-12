@@ -176,16 +176,33 @@ class EmailRequest(BaseModel):
         if value is None:
             return value
         if len(value) > MAX_HEADERS:
-            raise ValueError("Too many headers")  # noqa: TRY003
+            raise ValueError(  # noqa: TRY003
+                f"Too many headers: {len(value)} > {MAX_HEADERS}"
+            )
         for header_name, header_value in value.items():
             if "\r" in header_name or "\n" in header_name:
-                raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
+                header_name_escaped = header_name.replace("\r", "\\r").replace(
+                    "\n", "\\n"
+                )
+                raise ValueError(  # noqa: TRY003
+                    f"Header name contains CR/LF: {header_name_escaped!r}"
+                )
             if "\r" in header_value or "\n" in header_value:
-                raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
+                raise ValueError(  # noqa: TRY003
+                    f"Header '{header_name}' value contains CR/LF"
+                )
             if len(header_name) > MAX_HEADER_NAME_CHARS:
-                raise ValueError("Header name is too long")  # noqa: TRY003
+                header_name_prefix = header_name[:20]
+                header_name_suffix = "..." if len(header_name) > 20 else ""
+                raise ValueError(  # noqa: TRY003
+                    f"Header name '{header_name_prefix}{header_name_suffix}' is too long "
+                    f"({len(header_name)} > {MAX_HEADER_NAME_CHARS})"
+                )
             if len(header_value) > MAX_HEADER_VALUE_CHARS:
-                raise ValueError("Header value is too long")  # noqa: TRY003
+                raise ValueError(  # noqa: TRY003
+                    f"Header '{header_name}' value is too long "
+                    f"({len(header_value)} > {MAX_HEADER_VALUE_CHARS})"
+                )
         return value
 
     @field_validator("tags")
