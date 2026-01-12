@@ -11,10 +11,24 @@ import redis.asyncio as redis
 
 from app.config import settings
 
+try:
+    from prometheus_client import Counter
+except Exception:  # pragma: no cover
+    Counter = None  # type: ignore[assignment]
+
 if TYPE_CHECKING:
     from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
+
+REAPER_MOVED_TOTAL = (
+    Counter(
+        "email_reaper_moved_total",
+        "Total number of processing IDs moved back to the main queue by the reaper",
+    )
+    if Counter is not None
+    else None
+)
 
 
 class QueueService:
@@ -230,7 +244,6 @@ class QueueService:
             raise
         if result:
             logger.info("Dequeued email %s", result)
-        if result:
             await self.refresh_processing_visibility(result)
         return result
     
@@ -280,6 +293,8 @@ class QueueService:
             raise
         moved = int(moved or 0)
         if moved > 0:
+            if REAPER_MOVED_TOTAL is not None:
+                REAPER_MOVED_TOTAL.inc(moved)
             logger.warning("Reaped %d stuck processing emails back to queue", moved)
         return moved
 
