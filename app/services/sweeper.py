@@ -3,8 +3,8 @@ import logging
 import random
 import time
 from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from datetime import datetime, timedelta, timezone
-from typing import AsyncContextManager
 
 from prometheus_client import Counter, Gauge, Histogram
 from sqlalchemy import select
@@ -142,6 +142,14 @@ class SweeperService:
                             record.error_message = failure_reason
                         self._failed_total += 1
                         sweeper_failed_total.inc()
+                        if self._failed_total % SWEEPER_FAILED_TOTAL_LOG_EVERY == 0:
+                            logger.info(
+                                "Sweeper progress: failed_total=%s requeued_total=%s skipped_total=%s errored_total=%s",
+                                self._failed_total,
+                                self._requeued_total,
+                                self._skipped_total,
+                                self._errored_total,
+                            )
                     except Exception:
                         self._errored_total += 1
                         sweeper_errored_total.inc()
@@ -149,14 +157,6 @@ class SweeperService:
                             "Sweeper: failed to persist FAILED status for %s (reason=%s)",
                             email_id,
                             failure_reason,
-                        )
-                    if self._failed_total % SWEEPER_FAILED_TOTAL_LOG_EVERY == 0:
-                        logger.info(
-                            "Sweeper progress: failed_total=%s requeued_total=%s skipped_total=%s errored_total=%s",
-                            self._failed_total,
-                            self._requeued_total,
-                            self._skipped_total,
-                            self._errored_total,
                         )
                     continue
 
@@ -210,7 +210,7 @@ class SweeperService:
 
     async def run_forever(
         self,
-        session_factory: Callable[[], AsyncContextManager[AsyncSession]],
+        session_factory: Callable[[], AbstractAsyncContextManager[AsyncSession]],
     ) -> None:
         """Run sweeper loop until cancelled."""
         logger.info(
@@ -220,15 +220,16 @@ class SweeperService:
             self.batch_size,
             self.max_requeue_attempts,
         )
-        backoff_seconds = float(self.interval_seconds)
-        max_backoff_seconds = min(300.0, float(self.interval_seconds) * 8.0)
+        sanitized_interval = max(float(self.interval_seconds), 1.0)
+        backoff_seconds = sanitized_interval
+        max_backoff_seconds = min(300.0, sanitized_interval * 8.0)
 
         while True:
             try:
                 async with session_factory() as db:
                     await self.sweep_once(db)
-                backoff_seconds = float(self.interval_seconds)
-                await asyncio.sleep(self.interval_seconds)
+                backoff_seconds = sanitized_interval
+                await asyncio.sleep(sanitized_interval)
             except asyncio.CancelledError:
                 raise
             except Exception:
