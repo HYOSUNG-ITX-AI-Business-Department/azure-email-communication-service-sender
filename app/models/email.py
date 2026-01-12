@@ -70,4 +70,9 @@ class EmailRecord(Base):
             postgresql_where=text("idempotency_key IS NOT NULL"),
             sqlite_where=text("idempotency_key IS NOT NULL"),
         ),
+        Index(
+            "ix_emails_status_updated_at",
+            "status",
+            "updated_at",
+        ),
     )

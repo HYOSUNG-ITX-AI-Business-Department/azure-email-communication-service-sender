@@ -143,13 +143,11 @@ class SweeperService:
                     except Exception as e:
                         self._errored_total += 1
                         sweeper_errored_total.inc()
-                        try:
-                            record.error_message = f"{failure_reason}; persist error: {e}"
-                        except Exception:
-                            pass
                         logger.exception(
-                            "Sweeper: failed to persist FAILED status for %s",
+                            "Sweeper: failed to persist FAILED status for %s (reason=%s): %s",
                             email_id,
+                            failure_reason,
+                            e,
                         )
                     if self._failed_total % SWEEPER_FAILED_TOTAL_LOG_EVERY == 0:
                         logger.info(
