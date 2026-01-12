@@ -439,7 +439,7 @@ else
 end
 """
 
-    def __init__(self, redis: "Redis", *, key_prefix: str = "email:lock:") -> None:
+    def __init__(self, redis: Redis, *, key_prefix: str = "email:lock:") -> None:
         self._redis = redis
         self._key_prefix = key_prefix
         self._release_script = None
