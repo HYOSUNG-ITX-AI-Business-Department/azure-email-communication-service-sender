@@ -635,6 +635,7 @@ Key environment variables:
           const url = `${__ENV.BASE_URL}/api/v1/emails/`;
           const payload = JSON.stringify({
             caller_id: "load-test",
+            idempotency_key: `loadtest-${__VU}-${__ITER}-${Date.now()}`,
             from: "noreply@example.com",
             to: ["user@example.com"],
             subject: "Load test",
