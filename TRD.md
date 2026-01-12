@@ -765,6 +765,6 @@ Key environment variables:
     - Move one item (Redis 6.2+): `redis-cli LMOVE email:processing email:queue RIGHT LEFT`
     - Move a specific id: `redis-cli LREM email:processing 1 <email_id> && redis-cli LPUSH email:queue <email_id>`
   - Requeue one DLQ item (Use: after fixing root cause; requires `jq`):
-    - `redis-cli --raw LPOP email:dlq | jq -r '.email_id' | xargs -I {} redis-cli LPUSH email:queue {}`
+    - `redis-cli --raw LPOP email:dlq | jq -r '.email_id' | xargs -I {} sh -c 'redis-cli LPUSH email:queue \"$1\"' _ {}`
 
 - Runbook hygiene: perform periodic game days (e.g., quarterly) to validate procedures and update thresholds.
