@@ -94,17 +94,10 @@ class SweeperService:
                     self.max_requeue_attempts,
                 )
                 try:
-                    record.status = EmailStatus.FAILED.value
-                    await db.commit()
+                    async with db.begin():
+                        record.status = EmailStatus.FAILED.value
                 except Exception:
                     self._errored_total += 1
-                    try:
-                        await db.rollback()
-                    except Exception:
-                        logger.exception(
-                            "Sweeper: failed to rollback after marking FAILED for %s",
-                            email_id,
-                        )
                     logger.exception(
                         "Sweeper: failed to persist FAILED status for %s",
                         email_id,
@@ -129,15 +122,11 @@ class SweeperService:
             # Best-effort: keep DB state aligned with queue mutation.
             # If DB commit fails, sweeper will retry later (idempotent).
             try:
-                record.status = EmailStatus.QUEUED.value
-                record.sweeper_requeue_count = sweeper_requeue_count + 1
-                await db.commit()
+                async with db.begin():
+                    record.status = EmailStatus.QUEUED.value
+                    record.sweeper_requeue_count = sweeper_requeue_count + 1
             except Exception:
                 self._errored_total += 1
-                try:
-                    await db.rollback()
-                except Exception:
-                    logger.exception("Sweeper: failed to rollback after DB error for %s", email_id)
                 logger.exception("Sweeper: failed to update DB status for %s", email_id)
                 # Do not undo enqueue; at-least-once semantics.
                 continue
@@ -171,12 +160,21 @@ class SweeperService:
             self.batch_size,
             self.max_requeue_attempts,
         )
+        backoff_seconds = float(self.interval_seconds)
+        max_backoff_seconds = max(60.0, float(self.interval_seconds) * 16.0)
+
         while True:
             try:
                 async with session_factory() as db:
                     await self.sweep_once(db)
+                backoff_seconds = float(self.interval_seconds)
+                await asyncio.sleep(self.interval_seconds)
             except asyncio.CancelledError:
                 raise
             except Exception:
-                logger.exception("Sweeper loop error")
-            await asyncio.sleep(self.interval_seconds)
+                logger.exception(
+                    "Sweeper loop error; backing off for %ss",
+                    backoff_seconds,
+                )
+                await asyncio.sleep(backoff_seconds)
+                backoff_seconds = min(max_backoff_seconds, backoff_seconds * 2.0)

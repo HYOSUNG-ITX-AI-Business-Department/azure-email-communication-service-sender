@@ -203,10 +203,10 @@ class QueueService:
         """
         try:
             await self.redis_client.lrem(self.processing_key, 1, email_id)
-            await self.redis_client.srem(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception("Failed to complete email %s", email_id)
             raise
+        await self.clear_queued(email_id)
         logger.info("Completed email %s", email_id)
     
     async def move_to_dlq(
@@ -263,8 +263,8 @@ class QueueService:
             logger.exception("Failed to requeue email %s", email_id)
             raise
         moved = int(moved or 0)
-        if moved > 0 and self.redis_client is not None:
-            await self.redis_client.sadd(self.queued_set_key, email_id)
+        if moved > 0:
+            await self.mark_queued(email_id)
         if moved == 0:
             logger.warning(
                 "Email %s not found in processing queue for requeue",
@@ -295,8 +295,8 @@ class QueueService:
             )
             raise
         moved = int(moved or 0)
-        if moved > 0 and self.redis_client is not None:
-            await self.redis_client.sadd(self.queued_set_key, email_id)
+        if moved > 0:
+            await self.mark_queued(email_id)
         if moved == 0:
             logger.warning(
                 "Email %s not found in processing queue for delayed requeue",
@@ -394,6 +394,8 @@ class QueueService:
 
     async def mark_queued(self, email_id: str) -> None:
         """Mark an email id as queued (best-effort)."""
+        if self.redis_client is None:
+            return
         try:
             await self.redis_client.sadd(self.queued_set_key, email_id)
         except redis.RedisError:
@@ -401,6 +403,8 @@ class QueueService:
 
     async def clear_queued(self, email_id: str) -> None:
         """Clear queued marker (best-effort)."""
+        if self.redis_client is None:
+            return
         try:
             await self.redis_client.srem(self.queued_set_key, email_id)
         except redis.RedisError:
