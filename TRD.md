@@ -440,7 +440,7 @@ Key environment variables:
     - Examples: `relay-app` (freeform), `noreply@example.com` (email-form)
   - `SMTP_PASSWORD` (required, string; secret)
     - ACS note: use a client secret of the Microsoft Entra application linked to the SMTP username.
-  - Auth: this repo uses SMTP AUTH (username + password). For ACS, the service uses the linked Microsoft Entra application to obtain an access token internally; this repo does not implement the XOAUTH2 SASL mechanism.
+  - Auth: Azure Communication Services supports standard SMTP AUTH (username + password) for SMTP usernames, and XOAUTH2 SASL can be considered an optional alternative rather than a requirement. This repository intentionally uses the simpler username+password approach as a design choice (to keep dependencies and client behavior straightforward), not as a functional limitation of ACS.
   - Azure prerequisites: creating SMTP usernames and linking Entra apps requires Azure RBAC on the Communication Services resource; recommended built-in role: `Communication and Email Service Owner` (or a custom role with at least `Microsoft.Communication/CommunicationServices/read`, `Microsoft.Communication/CommunicationServices/write`, and `Microsoft.Communication/EmailServices/write` as needed).
   - Secrets (examples; do not commit to git):
     - Strategy: dev uses local `.env`; staging/prod should inject secrets from a remote secret store and CI/CD.
@@ -563,13 +563,23 @@ Key environment variables:
         ```lua
         -- KEYS[1]=processing_list, KEYS[2]=queue_list, KEYS[3]=processing_vis_zset
         -- ARGV[1]=now_epoch_seconds, ARGV[2]=max_batch
+        --
+        -- Notes:
+        -- - All Redis operations within a Lua script execute atomically.
+        -- - Score range: this implementation assumes `email:processing:vis` uses non-negative
+        --   Unix epoch seconds as scores, so we use `0..now` (instead of `-inf..now`).
+        -- - Semantics: if LREM returns 0, the id is no longer present in `email:processing`
+        --   (already completed/removed). We skip it. If this happens frequently, consider a
+        --   separate cleanup job to reconcile orphaned vis entries.
+        -- - Edge cases to test: id in processing but missing in vis; id in vis but missing in
+        --   processing; already-completed ids; large `max_batch` performance implications.
         local processing = KEYS[1]
         local queue = KEYS[2]
         local vis = KEYS[3]
         local now = tonumber(ARGV[1])
         local max_batch = tonumber(ARGV[2])
 
-        local ids = redis.call('ZRANGEBYSCORE', vis, '-inf', now, 'LIMIT', 0, max_batch)
+        local ids = redis.call('ZRANGEBYSCORE', vis, 0, now, 'LIMIT', 0, max_batch)
         local moved = 0
         for _, id in ipairs(ids) do
           redis.call('ZREM', vis, id)
@@ -694,6 +704,13 @@ Key environment variables:
   - Signals: `/health` returns 503, connection errors in logs.
   - Actions: restore dependency availability; scale workers down if they are crash-looping; verify recovery by watching queue movement and error rates.
 
+Post-incident analysis (examples/placeholders; replace with your incident system):
+- Queue backpressure: [Post-incident analysis](https://example.com/incidents/queue-backpressure)
+- Stuck processing: [Post-incident analysis](https://example.com/incidents/stuck-processing)
+- SMTP/ACS auth failures: [Post-incident analysis](https://example.com/incidents/smtp-auth-failures)
+- DLQ spikes: [Post-incident analysis](https://example.com/incidents/dlq-spikes)
+- Dependency outage (Redis/DB): [Post-incident analysis](https://example.com/incidents/dependency-outage)
+
 ### Safety Mode / Circuit Breakers (Operational)
 
 - Stop/scale down workers when upstream SMTP or dependencies are unstable to avoid runaway retries/DLQ growth.
@@ -766,6 +783,31 @@ Key environment variables:
     - Move one item (Redis 6.2+): `redis-cli LMOVE email:processing email:queue RIGHT LEFT`
     - Move a specific id: `redis-cli LREM email:processing 1 <email_id> && redis-cli LPUSH email:queue <email_id>`
   - Requeue one DLQ item (Use: after fixing root cause; requires `jq`):
-    - `redis-cli --raw LPOP email:dlq | jq -r '.email_id' | xargs -I {} sh -c 'redis-cli LPUSH email:queue \"$1\"' _ {}`
+    - Safer variant (avoids pushing empty values and prevents DLQ data loss on parse/LPUSH failure):
+
+      ```bash
+      item="$(redis-cli --raw LPOP email:dlq)"
+      if [ -z "$item" ]; then
+        echo "DLQ empty"
+        exit 0
+      fi
+
+      # Fail fast on invalid JSON and missing email_id.
+      email_id="$(printf '%s' "$item" | jq -er '.email_id')"
+
+      if [ -z "$email_id" ]; then
+        echo "ERROR: empty email_id"
+        # push original item back to DLQ
+        printf '%s' "$item" | redis-cli -x LPUSH email:dlq
+        exit 1
+      fi
+
+      if ! redis-cli LPUSH email:queue "$email_id" >/dev/null; then
+        echo "ERROR: failed to LPUSH to email:queue"
+        # push original item back to DLQ
+        printf '%s' "$item" | redis-cli -x LPUSH email:dlq
+        exit 1
+      fi
+      ```
 
 - Runbook hygiene: perform periodic game days (e.g., quarterly) to validate procedures and update thresholds.
