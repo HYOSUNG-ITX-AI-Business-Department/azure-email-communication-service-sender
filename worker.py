@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import os
 import random
 from redis.exceptions import RedisError
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -14,7 +15,7 @@ from app.schemas.email import EmailStatus
 import signal
 import sys
 
-from prometheus_client import Counter, Gauge, start_http_server
+from prometheus_client import CollectorRegistry, Counter, Gauge, multiprocess, start_http_server
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +44,7 @@ QUEUE_SIZE = Gauge(
     "email_queue_size",
     "Queue sizes by key",
     ["queue"],
+    multiprocess_mode="max",
 )
 
 
@@ -72,8 +74,23 @@ def _start_worker_metrics_server() -> None:
     if not settings.metrics_enabled:
         return
 
+    registry: CollectorRegistry | None = None
+    if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        registry = CollectorRegistry()
+        multiprocess.MultiProcessCollector(registry)
+
     try:
-        start_http_server(settings.worker_metrics_port, addr=settings.worker_metrics_host)
+        if registry is None:
+            start_http_server(
+                settings.worker_metrics_port,
+                addr=settings.worker_metrics_host,
+            )
+        else:
+            start_http_server(
+                settings.worker_metrics_port,
+                addr=settings.worker_metrics_host,
+                registry=registry,
+            )
     except Exception:
         logger.exception(
             "Failed to start worker Prometheus metrics server on %s:%s",

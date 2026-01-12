@@ -315,6 +315,7 @@
   - Implemented: Prometheus exporter
     - API: `/metrics` (enable via `METRICS_ENABLED`, path via `METRICS_PATH`)
     - Worker: Prometheus server on `WORKER_METRICS_HOST:WORKER_METRICS_PORT` (queue size gauges updated every `WORKER_METRICS_POLL_INTERVAL_SECONDS`)
+      - Multi-worker note: if you run multiple worker processes on the same host, either assign distinct `WORKER_METRICS_PORT` values per process, or enable Prometheus python-client multiprocess mode by setting `PROMETHEUS_MULTIPROC_DIR` and scraping a single shared endpoint.
   - Optional: OpenTelemetry (not implemented in this repo yet).
   - Interim: derive from DB statuses + logs; use Redis queries (or the queue stats endpoint) for queue sizes.
 - Cadence: collect at 15–60s intervals and roll up to 1m/5m windows for SLO tracking.
