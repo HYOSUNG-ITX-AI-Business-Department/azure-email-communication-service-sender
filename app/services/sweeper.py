@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 
+from prometheus_client import Counter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,23 @@ logger = logging.getLogger(__name__)
 
 SWEEPER_REENQUEUE_TOTAL_LOG_EVERY = 100
 SWEEPER_FAILED_TOTAL_LOG_EVERY = 100
+
+sweeper_requeued_total = Counter(
+    "sweeper_requeued_total",
+    "Total number of emails re-enqueued by the sweeper",
+)
+sweeper_skipped_total = Counter(
+    "sweeper_skipped_total",
+    "Total number of emails skipped by the sweeper (already queued)",
+)
+sweeper_errored_total = Counter(
+    "sweeper_errored_total",
+    "Total number of errors encountered by the sweeper",
+)
+sweeper_failed_total = Counter(
+    "sweeper_failed_total",
+    "Total number of emails marked failed by the sweeper (max attempts exceeded)",
+)
 
 
 class SweeperService:
@@ -39,7 +57,7 @@ class SweeperService:
             max_requeue_attempts if max_requeue_attempts is not None else 10
         )
 
-        # In-memory counters (process-local; Prometheus metrics are handled in worker/main).
+        # In-memory counters (process-local). Also mirrored as Prometheus counters.
         self._requeued_total = 0
         self._skipped_total = 0
         self._errored_total = 0
@@ -78,16 +96,19 @@ class SweeperService:
                 queued = await queue_service.is_queued(email_id)
             except Exception:
                 self._errored_total += 1
+                sweeper_errored_total.inc()
                 logger.exception("Sweeper: failed to check queued-set for %s", email_id)
                 continue
 
             if queued:
                 self._skipped_total += 1
+                sweeper_skipped_total.inc()
                 continue
 
             sweeper_requeue_count = getattr(record, "sweeper_requeue_count", 0) or 0
             if sweeper_requeue_count >= self.max_requeue_attempts:
                 self._failed_total += 1
+                sweeper_failed_total.inc()
                 logger.warning(
                     "Sweeper: email %s exceeded max sweeper requeue attempts (%s); marking FAILED",
                     email_id,
@@ -98,6 +119,7 @@ class SweeperService:
                         record.status = EmailStatus.FAILED.value
                 except Exception:
                     self._errored_total += 1
+                    sweeper_errored_total.inc()
                     logger.exception(
                         "Sweeper: failed to persist FAILED status for %s",
                         email_id,
@@ -116,6 +138,7 @@ class SweeperService:
                 await queue_service.enqueue(email_id)
             except Exception:
                 self._errored_total += 1
+                sweeper_errored_total.inc()
                 logger.exception("Sweeper: failed to enqueue %s", email_id)
                 continue
 
@@ -127,12 +150,14 @@ class SweeperService:
                     record.sweeper_requeue_count = sweeper_requeue_count + 1
             except Exception:
                 self._errored_total += 1
+                sweeper_errored_total.inc()
                 logger.exception("Sweeper: failed to update DB status for %s", email_id)
                 # Do not undo enqueue; at-least-once semantics.
                 continue
 
             requeued += 1
             self._requeued_total += 1
+            sweeper_requeued_total.inc()
 
             if self._requeued_total % SWEEPER_REENQUEUE_TOTAL_LOG_EVERY == 0:
                 logger.info(
