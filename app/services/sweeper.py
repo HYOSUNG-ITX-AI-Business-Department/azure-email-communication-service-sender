@@ -144,10 +144,9 @@ class SweeperService:
                         self._errored_total += 1
                         sweeper_errored_total.inc()
                         logger.exception(
-                            "Sweeper: failed to persist FAILED status for %s (reason=%s): %s",
+                            "Sweeper: failed to persist FAILED status for %s (reason=%s)",
                             email_id,
                             failure_reason,
-                            e,
                         )
                     if self._failed_total % SWEEPER_FAILED_TOTAL_LOG_EVERY == 0:
                         logger.info(
@@ -217,7 +216,7 @@ class SweeperService:
             self.max_requeue_attempts,
         )
         backoff_seconds = float(self.interval_seconds)
-        max_backoff_seconds = max(60.0, float(self.interval_seconds) * 16.0)
+        max_backoff_seconds = min(300.0, float(self.interval_seconds) * 8.0)
 
         while True:
             try:
