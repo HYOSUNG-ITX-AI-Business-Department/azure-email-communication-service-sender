@@ -282,3 +282,21 @@ Key environment variables:
 - Check health/readiness: `curl -fsS http://<host>:8000/health` and `curl -fsS http://<host>:8000/ready`
 - Check queue stats endpoint (requires allowlist): `curl -H 'X-Caller-Id: <ops-id>' http://<host>:8000/api/v1/emails/`
 - Inspect Redis queues: `redis-cli LLEN email:queue`, `redis-cli LLEN email:processing`, `redis-cli LLEN email:dlq`, `redis-cli ZCARD email:delayed`
+- Manual requeue from processing:
+  - Move one item (Redis 6.2+): `redis-cli LMOVE email:processing email:queue RIGHT LEFT`
+  - Move a specific id: `redis-cli LREM email:processing 1 <email_id> && redis-cli LPUSH email:queue <email_id>`
+- Inspect DLQ entries (JSON): `redis-cli --raw LRANGE email:dlq 0 10`
+- Requeue one DLQ item (after fixing root cause; requires `jq`):
+  - `redis-cli --raw LPOP email:dlq | jq -r '.email_id' | xargs -I {} redis-cli LPUSH email:queue {}`
+- Worker status/logs (docker-compose):
+  - `docker compose ps worker`
+  - `docker compose logs -f worker`
+- Find emails stuck in `sending` (Postgres example):
+
+  ```sql
+  SELECT id, status, updated_at
+  FROM emails
+  WHERE status = 'sending' AND updated_at < NOW() - INTERVAL '10 minutes'
+  ORDER BY updated_at ASC
+  LIMIT 50;
+  ```
