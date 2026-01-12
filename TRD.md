@@ -164,11 +164,11 @@
 Key environment variables:
 - SMTP:
   - `SMTP_HOST` (optional, string, default: `smtp.azurecomm.net`)
-  - `SMTP_PORT` (optional, int, default: `587`)
+  - `SMTP_PORT` (optional, int, default: `587`; port `25` may also be supported depending on provider/network policy)
   - `SMTP_USERNAME` (required, string)
   - `SMTP_PASSWORD` (required, string; secret)
   - Auth: this implementation uses SMTP AUTH (username + password). Token-based SMTP auth (e.g., XOAUTH2) is not supported by the SMTP client in this repo today.
-  - Azure prerequisites: provisioning SMTP usernames/secrets requires appropriate Azure RBAC on the Communication Services resource (Contributor-level access is typically sufficient).
+  - Azure prerequisites: provisioning SMTP usernames/secrets requires Azure RBAC on the Communication Services resource; use a built-in Contributor/Owner role or a custom role with at least `Microsoft.Communication/CommunicationServices/read`, `Microsoft.Communication/CommunicationServices/write`, and the SMTP username operations you need (domain/sender management may require `Microsoft.Communication/EmailServices/*`).
   - Secrets (examples; do not commit to git):
     - Strategy: dev uses local `.env`; staging/prod should inject secrets from a remote secret store and CI/CD.
     - Azure Key Vault: store `SMTP_USERNAME`/`SMTP_PASSWORD` as secrets and grant the app a Managed Identity with secret `get` access.
@@ -183,7 +183,7 @@ Key environment variables:
       ```
 
     - Rotation checklist: rotate credentials, update vault/CI secrets, deploy, verify sends, keep a rollback plan.
-  - TLS: SMTP sending uses STARTTLS with certificate validation enabled; ensure the runtime has an appropriate CA bundle.
+  - TLS: SMTP sending uses STARTTLS with certificate validation enabled; ensure the runtime has an appropriate CA bundle and supports TLS 1.2+ (Azure requires TLS 1.2 or later).
 - Security:
   - `ALLOWED_MAILFROM` (required, comma-separated string)
     - Format: `local@domain` (wildcards are not supported).
