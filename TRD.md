@@ -272,7 +272,11 @@ Key environment variables:
   - Actions: inspect worker logs and dependency health; consider manual requeue after confirming the worker is not still processing those ids.
 - SMTP/ACS auth failures:
   - Signals: repeated 535/5xx SMTP auth errors; sudden spike in failed sends.
-  - Actions: validate `SMTP_USERNAME`/`SMTP_PASSWORD` secret injection, rotate credentials, and verify TLS/cert trust on the runtime.
+  - Actions:
+    - Validate `SMTP_USERNAME`/`SMTP_PASSWORD` secret injection and rotate credentials if needed.
+    - Verify network connectivity to `smtp.azurecomm.net:587` (e.g., `nc -zv smtp.azurecomm.net 587` or `telnet smtp.azurecomm.net 587`), DNS resolution, and outbound firewall/proxy/NAT rules.
+    - Review any ACS/infra IP allowlists and firewall rules if configured.
+    - Verify TLS/cert trust on the runtime.
 - DLQ spikes:
   - Signals: `email:dlq` grows rapidly; permanent SMTP errors (5xx) or retry exhaustion.
   - Actions: sample DLQ entries for root causes, fix configuration/payload issues, and requeue only after mitigating the underlying cause.
