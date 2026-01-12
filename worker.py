@@ -74,35 +74,64 @@ def _start_worker_metrics_server() -> None:
     if not settings.metrics_enabled:
         return
 
+    port = settings.worker_metrics_port
+    mode = "single"
+
     registry: CollectorRegistry | None = None
     if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+        mode = "multiprocess"
         registry = CollectorRegistry()
         multiprocess.MultiProcessCollector(registry)
+    else:
+        worker_index_raw = (
+            os.environ.get("WORKER_INDEX") or os.environ.get("WORKER_METRICS_PORT_OFFSET")
+        )
+        if worker_index_raw:
+            try:
+                port_offset = int(worker_index_raw)
+            except ValueError:
+                logger.warning(
+                    "Invalid WORKER_INDEX/WORKER_METRICS_PORT_OFFSET value %r; expected int",
+                    worker_index_raw,
+                )
+            else:
+                candidate = port + port_offset
+                if 1 <= candidate <= 65535:
+                    port = candidate
+                else:
+                    logger.warning(
+                        "Ignoring out-of-range worker metrics port %s (base=%s offset=%s)",
+                        candidate,
+                        port,
+                        port_offset,
+                    )
 
     try:
         if registry is None:
             start_http_server(
-                settings.worker_metrics_port,
+                port,
                 addr=settings.worker_metrics_host,
             )
         else:
             start_http_server(
-                settings.worker_metrics_port,
+                port,
                 addr=settings.worker_metrics_host,
                 registry=registry,
             )
     except Exception:
         logger.exception(
-            "Failed to start worker Prometheus metrics server on %s:%s",
+            "Failed to start worker Prometheus metrics server on %s:%s (mode=%s)",
             settings.worker_metrics_host,
-            settings.worker_metrics_port,
+            port,
+            mode,
         )
         return
 
     logger.info(
-        "Worker Prometheus metrics enabled on %s:%s",
+        "Worker Prometheus metrics enabled on %s:%s (mode=%s)",
         settings.worker_metrics_host,
-        settings.worker_metrics_port,
+        port,
+        mode,
     )
 
 
