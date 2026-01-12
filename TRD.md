@@ -234,7 +234,8 @@ Key environment variables:
   - `DEBUG` (optional, bool, default: `false`; also controls uvicorn reload and dev-only DB auto-creation)
 - Idempotency (suggested future option):
   - `IDEMPOTENCY_WINDOW_HOURS` (optional, int, default: `24`)
-    - Defines the time window during which a given `caller_id + idempotency_key` pair is treated as deduplicated.
+    - Implementation status: not implemented in this repo (planned). Current behavior is “as long as the email record exists” (DB uniqueness on `caller_id + idempotency_key`).
+    - Target behavior if implemented: defines the time window during which a given `caller_id + idempotency_key` pair is treated as deduplicated.
     - Within the window: requests with the same `caller_id + idempotency_key` return the existing record (and should not enqueue again).
     - After the window: the same `idempotency_key` can be reused to create a new record.
     - Data retention interaction:
