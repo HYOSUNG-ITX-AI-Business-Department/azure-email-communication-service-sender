@@ -29,6 +29,10 @@
 
 ### `POST /api/v1/emails/`
 
+- OpenAPI:
+  - `GET /openapi.json` (machine-readable schema)
+  - `GET /docs` (interactive Swagger UI)
+
 - Purpose: Submit an email request.
 - Authentication/Authorization:
   - Requires `X-Caller-Id` header (trusted upstream identity).
@@ -40,6 +44,93 @@
 - Validation/security:
   - `envelope_from` must be allowlisted via `ALLOWED_MAILFROM`.
   - Custom headers are allowlisted via `ALLOWED_HEADERS` (case-insensitive match) and CR/LF characters are rejected in header names/values to prevent injection.
+- Request schema (simplified JSON Schema):
+
+  ```json
+  {
+    "type": "object",
+    "required": ["caller_id", "from", "to", "subject", "body"],
+    "properties": {
+      "caller_id": {"type": "string"},
+      "idempotency_key": {"type": ["string", "null"]},
+      "from": {"type": "string", "format": "email"},
+      "envelope_from": {"type": ["string", "null"], "format": "email"},
+      "to": {"type": "array", "minItems": 1, "items": {"type": "string", "format": "email"}},
+      "cc": {"type": ["array", "null"], "items": {"type": "string", "format": "email"}},
+      "bcc": {"type": ["array", "null"], "items": {"type": "string", "format": "email"}},
+      "subject": {"type": "string"},
+      "body": {"type": "string"},
+      "html": {"type": "boolean"},
+      "reply_to": {"type": ["string", "null"], "format": "email"},
+      "headers": {"type": ["object", "null"], "additionalProperties": {"type": "string"}},
+      "tags": {"type": ["array", "null"], "items": {"type": "string"}},
+      "attachments": {
+        "type": ["array", "null"],
+        "maxItems": 10,
+        "items": {
+          "type": "object",
+          "required": ["filename", "content_base64"],
+          "properties": {
+            "filename": {"type": "string"},
+            "content_type": {"type": "string"},
+            "content_base64": {"type": "string"}
+          }
+        }
+      },
+      "smtp_auth_profile_id": {"type": ["string", "null"]}
+    }
+  }
+  ```
+
+- Response schema (202 Accepted):
+
+  ```json
+  {
+    "type": "object",
+    "required": ["email_id", "status", "message", "created_at"],
+    "properties": {
+      "email_id": {"type": "string"},
+      "status": {"type": "string", "enum": ["pending", "queued", "sending", "sent", "failed", "dlq"]},
+      "message": {"type": "string"},
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  }
+  ```
+
+- Example request:
+
+  ```json
+  {
+    "caller_id": "service-a",
+    "idempotency_key": "order-123-receipt",
+    "from": "noreply@example.com",
+    "envelope_from": "bounce@example.com",
+    "to": ["user@example.com"],
+    "subject": "Order Receipt",
+    "body": "Thank you for your order.",
+    "html": false
+  }
+  ```
+
+- Example response:
+
+  ```json
+  {
+    "email_id": "uuid-here",
+    "status": "queued",
+    "message": "Email queued for sending",
+    "created_at": "2026-01-11T16:00:00+00:00"
+  }
+  ```
+
+- Error responses:
+  - Format: `{"detail": "..."}`
+  - Common status codes:
+    - 400: invalid request fields or configuration (e.g., `ALLOWED_MAILFROM`)
+    - 403: `caller_id` does not match `X-Caller-Id`
+    - 409: idempotency key reused with a different payload
+    - 422: request model validation error (FastAPI/Pydantic)
+    - 500: internal error (e.g., enqueue failure)
 
 ### `GET /api/v1/emails/{email_id}`
 
@@ -49,17 +140,128 @@
   - `to_addresses` is normalized to `list[str]` (malformed values fall back to `[]` and are logged).
   - Unknown DB `status` values are logged at WARN and mapped to `failed`.
   - Example: `to_addresses='[\"a@example.com\"]'` → `["a@example.com"]`; `status="unexpected"` → `failed`.
+- Response schema (200 OK):
+
+  ```json
+  {
+    "type": "object",
+    "required": ["email_id", "status", "from_address", "envelope_from", "to", "subject", "created_at", "updated_at", "retry_count", "caller_id"],
+    "properties": {
+      "email_id": {"type": "string"},
+      "status": {"type": "string", "enum": ["pending", "queued", "sending", "sent", "failed", "dlq"]},
+      "from_address": {"type": "string"},
+      "envelope_from": {"type": "string"},
+      "to": {"type": "array", "items": {"type": "string"}},
+      "subject": {"type": "string"},
+      "created_at": {"type": "string", "format": "date-time"},
+      "updated_at": {"type": "string", "format": "date-time"},
+      "retry_count": {"type": "integer"},
+      "error_message": {"type": ["string", "null"]},
+      "sent_at": {"type": ["string", "null"], "format": "date-time"},
+      "caller_id": {"type": "string"},
+      "smtp_auth_profile_id": {"type": ["string", "null"]}
+    }
+  }
+  ```
+
+- Example response:
+
+  ```json
+  {
+    "email_id": "uuid-here",
+    "status": "sent",
+    "from_address": "noreply@example.com",
+    "envelope_from": "bounce@example.com",
+    "to": ["user@example.com"],
+    "subject": "Order Receipt",
+    "created_at": "2026-01-11T16:00:00+00:00",
+    "updated_at": "2026-01-11T16:00:01+00:00",
+    "retry_count": 0,
+    "error_message": null,
+    "sent_at": "2026-01-11T16:00:01+00:00",
+    "caller_id": "service-a",
+    "smtp_auth_profile_id": null
+  }
+  ```
+
+- Error responses:
+  - 404: not found (also used when caller id does not match)
+  - 500: internal error
 
 ### `GET /api/v1/emails/` (Queue stats)
 
 - Purpose: Queue sizes for monitoring.
 - Authorization: Requires `X-Caller-Id` and `QUEUE_STATS_ALLOWED_CALLERS` allowlist.
+- Response schema (200 OK):
+
+  ```json
+  {
+    "type": "object",
+    "required": ["queue_size", "processing_size", "dlq_size"],
+    "properties": {
+      "queue_size": {"type": "integer"},
+      "processing_size": {"type": "integer"},
+      "dlq_size": {"type": "integer"}
+    }
+  }
+  ```
+
+- Example response:
+
+  ```json
+  {
+    "queue_size": 12,
+    "processing_size": 3,
+    "dlq_size": 0
+  }
+  ```
+
+- Error responses:
+  - 403: endpoint disabled or caller not authorized
+  - 500: internal error
 
 ### Health/Readiness
 
 - `/health`: dependency health (Redis + DB); returns 503 when unhealthy.
 - `/ready` and `/readyz`: readiness check with dependency status; returns 503 when not ready.
 - `/healthz`: liveness-only; always returns 200.
+- Response schema (`/health`, `/ready`):
+
+  ```json
+  {
+    "type": "object",
+    "required": ["status", "checks"],
+    "properties": {
+      "status": {"type": "string"},
+      "checks": {
+        "type": "object",
+        "required": ["redis", "database"],
+        "properties": {
+          "redis": {"type": "boolean"},
+          "database": {"type": "boolean"}
+        }
+      }
+    }
+  }
+  ```
+
+- Example `/health` response (200 OK):
+
+  ```json
+  {
+    "status": "healthy",
+    "checks": {"redis": true, "database": true}
+  }
+  ```
+
+- Example `/health` response (503 Service Unavailable):
+
+  ```json
+  {
+    "status": "unhealthy",
+    "checks": {"redis": false, "database": true}
+  }
+  ```
 
 ## Observability
 
