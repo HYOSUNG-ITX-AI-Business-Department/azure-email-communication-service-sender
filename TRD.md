@@ -154,6 +154,8 @@ Key environment variables:
   - `SMTP_PORT` (optional, int, default: `587`)
   - `SMTP_USERNAME` (required, string)
   - `SMTP_PASSWORD` (required, string; secret)
+  - Auth: this implementation uses SMTP AUTH (username + password). Token-based SMTP auth (e.g., XOAUTH2) is not supported by the SMTP client in this repo today.
+  - Azure prerequisites: provisioning SMTP usernames/secrets requires appropriate Azure RBAC on the Communication Services resource (Contributor-level access is typically sufficient).
   - Secrets (examples; do not commit to git):
     - Strategy: dev uses local `.env`; staging/prod should inject secrets from a remote secret store and CI/CD.
     - Azure Key Vault: store `SMTP_USERNAME`/`SMTP_PASSWORD` as secrets and grant the app a Managed Identity with secret `get` access.
