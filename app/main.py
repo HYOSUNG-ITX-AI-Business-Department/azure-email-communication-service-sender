@@ -7,6 +7,7 @@ from app.config import settings
 from app.database import AsyncSessionLocal, init_db
 from app.services.queue import queue_service
 from sqlalchemy import text
+from prometheus_fastapi_instrumentator import Instrumentator
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,14 @@ app = FastAPI(
 
 # Include routers
 app.include_router(emails.router)
+
+if settings.metrics_enabled:
+    Instrumentator().instrument(app).expose(
+        app,
+        endpoint=settings.metrics_path,
+        include_in_schema=False,
+    )
+    logger.info("Prometheus metrics enabled at %s", settings.metrics_path)
 
 
 async def _dependency_checks() -> dict[str, bool]:

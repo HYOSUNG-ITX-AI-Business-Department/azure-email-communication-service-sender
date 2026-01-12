@@ -638,10 +638,12 @@ async def test_get_queue_stats_success():
     """Test successful queue stats retrieval"""
     with patch('app.api.emails.queue_service.get_queue_size', new_callable=AsyncMock) as mock_queue, \
          patch('app.api.emails.queue_service.get_processing_size', new_callable=AsyncMock) as mock_processing, \
+         patch('app.api.emails.queue_service.get_delayed_size', new_callable=AsyncMock) as mock_delayed, \
          patch('app.api.emails.queue_service.get_dlq_size', new_callable=AsyncMock) as mock_dlq:
         
         mock_queue.return_value = 10
         mock_processing.return_value = 5
+        mock_delayed.return_value = 3
         mock_dlq.return_value = 2
         
         async with get_test_client() as client:
@@ -654,6 +656,7 @@ async def test_get_queue_stats_success():
         data = response.json()
         assert data["queue_size"] == 10
         assert data["processing_size"] == 5
+        assert data["delayed_size"] == 3
         assert data["dlq_size"] == 2
 
 

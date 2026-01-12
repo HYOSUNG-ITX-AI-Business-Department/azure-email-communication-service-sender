@@ -275,6 +275,7 @@ async def get_queue_stats(
         return {
             "queue_size": await queue_service.get_queue_size(),
             "processing_size": await queue_service.get_processing_size(),
+            "delayed_size": await queue_service.get_delayed_size(),
             "dlq_size": await queue_service.get_dlq_size()
         }
     except HTTPException:

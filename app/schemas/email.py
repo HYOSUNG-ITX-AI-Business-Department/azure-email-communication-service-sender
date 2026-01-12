@@ -9,6 +9,18 @@ from enum import Enum
 MAX_ATTACHMENTS = 10
 MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024  # 10 MiB
 MAX_ATTACHMENT_BASE64_CHARS = 14_000_000
+MAX_ATTACHMENT_FILENAME_CHARS = 255
+MAX_ATTACHMENT_CONTENT_TYPE_CHARS = 255
+MAX_CALLER_ID_CHARS = 256
+MAX_IDEMPOTENCY_KEY_CHARS = 256
+MAX_SMTP_AUTH_PROFILE_ID_CHARS = 256
+MAX_SUBJECT_CHARS = 1000
+MAX_BODY_CHARS = 1_000_000
+MAX_HEADERS = 50
+MAX_HEADER_NAME_CHARS = 128
+MAX_HEADER_VALUE_CHARS = 2048
+MAX_TAGS = 50
+MAX_TAG_CHARS = 128
 
 
 class EmailStatus(str, Enum):
@@ -22,9 +34,15 @@ class EmailStatus(str, Enum):
 
 class EmailAttachment(BaseModel):
     """Attachment model for email requests"""
-    filename: str = Field(..., min_length=1, description="Attachment filename")
+    filename: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_ATTACHMENT_FILENAME_CHARS,
+        description="Attachment filename",
+    )
     content_type: str = Field(
         "application/octet-stream",
+        max_length=MAX_ATTACHMENT_CONTENT_TYPE_CHARS,
         description="Attachment MIME type",
     )
     content_base64: str = Field(
@@ -77,8 +95,16 @@ class EmailRequest(BaseModel):
     to: list[EmailStr] = Field(..., min_length=1, description="Recipient addresses")
     cc: Optional[list[EmailStr]] = Field(None, description="CC addresses")
     bcc: Optional[list[EmailStr]] = Field(None, description="BCC addresses")
-    subject: str = Field(..., description="Email subject")
-    body: str = Field(..., description="Email body (plain text or HTML)")
+    subject: str = Field(
+        ...,
+        max_length=MAX_SUBJECT_CHARS,
+        description="Email subject",
+    )
+    body: str = Field(
+        ...,
+        max_length=MAX_BODY_CHARS,
+        description="Email body (plain text or HTML)",
+    )
     html: bool = Field(default=False, description="Whether body is HTML")
     reply_to: Optional[EmailStr] = Field(None, description="Reply-To address")
     attachments: Optional[list[EmailAttachment]] = Field(
@@ -90,11 +116,24 @@ class EmailRequest(BaseModel):
         None,
         description="Custom headers (allowlist enforced)",
     )
-    tags: Optional[list[str]] = Field(None, description="Tags for tracking")
-    idempotency_key: Optional[str] = Field(None, description="Idempotency key for duplicate prevention")
-    caller_id: str = Field(..., description="Caller identifier for multi-tenant isolation")
+    tags: Optional[list[str]] = Field(
+        None,
+        max_length=MAX_TAGS,
+        description="Tags for tracking",
+    )
+    idempotency_key: Optional[str] = Field(
+        None,
+        max_length=MAX_IDEMPOTENCY_KEY_CHARS,
+        description="Idempotency key for duplicate prevention",
+    )
+    caller_id: str = Field(
+        ...,
+        max_length=MAX_CALLER_ID_CHARS,
+        description="Caller identifier for multi-tenant isolation",
+    )
     smtp_auth_profile_id: Optional[str] = Field(
         None,
+        max_length=MAX_SMTP_AUTH_PROFILE_ID_CHARS,
         description="SMTP auth profile identifier for audit correlation",
     )
     
@@ -107,6 +146,7 @@ class EmailRequest(BaseModel):
         "reply_to",
         "idempotency_key",
         "caller_id",
+        "smtp_auth_profile_id",
     )
     @classmethod
     def _reject_crlf_in_string_fields(cls, value: str | None) -> str | None:
@@ -135,11 +175,46 @@ class EmailRequest(BaseModel):
     ) -> dict[str, str] | None:
         if value is None:
             return value
+        if len(value) > MAX_HEADERS:
+            raise ValueError(  # noqa: TRY003
+                f"Too many headers: {len(value)} > {MAX_HEADERS}"
+            )
         for header_name, header_value in value.items():
             if "\r" in header_name or "\n" in header_name:
-                raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
+                header_name_escaped = header_name.replace("\r", "\\r").replace(
+                    "\n", "\\n"
+                )
+                raise ValueError(  # noqa: TRY003
+                    f"Header name contains CR/LF: {header_name_escaped!r}"
+                )
             if "\r" in header_value or "\n" in header_value:
+                raise ValueError(  # noqa: TRY003
+                    f"Header '{header_name}' value contains CR/LF"
+                )
+            if len(header_name) > MAX_HEADER_NAME_CHARS:
+                header_name_prefix = header_name[:20]
+                header_name_suffix = "..." if len(header_name) > 20 else ""
+                raise ValueError(  # noqa: TRY003
+                    f"Header name '{header_name_prefix}{header_name_suffix}' is too long "
+                    f"({len(header_name)} > {MAX_HEADER_NAME_CHARS})"
+                )
+            if len(header_value) > MAX_HEADER_VALUE_CHARS:
+                raise ValueError(  # noqa: TRY003
+                    f"Header '{header_name}' value is too long "
+                    f"({len(header_value)} > {MAX_HEADER_VALUE_CHARS})"
+                )
+        return value
+
+    @field_validator("tags")
+    @classmethod
+    def _validate_tags(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return value
+        for tag in value:
+            if "\r" in tag or "\n" in tag:
                 raise ValueError("CR/LF characters are not allowed")  # noqa: TRY003
+            if len(tag) > MAX_TAG_CHARS:
+                raise ValueError("Tag is too long")  # noqa: TRY003
         return value
 
 
@@ -172,4 +247,5 @@ class QueueStatsResponse(BaseModel):
     """Response model for queue stats"""
     queue_size: int
     processing_size: int
+    delayed_size: int
     dlq_size: int

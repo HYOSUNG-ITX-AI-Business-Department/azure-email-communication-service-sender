@@ -3,6 +3,7 @@ from app.config import settings
 import json
 import logging
 import time
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -197,13 +198,26 @@ class QueueService:
             raise
         logger.info("Completed email %s", email_id)
     
-    async def move_to_dlq(self, email_id: str, error: str):
+    async def move_to_dlq(
+        self,
+        email_id: str,
+        error: str,
+        *,
+        retry_count: int | None = None,
+    ):
         """Move failed email to Dead Letter Queue.
 
         Raises:
             redis.RedisError: When Redis operations fail.
         """
-        dlq_item = json.dumps({"email_id": email_id, "error": error})
+        dlq_payload: dict[str, object] = {
+            "email_id": email_id,
+            "error": error,
+            "dlq_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if retry_count is not None:
+            dlq_payload["retry_count"] = retry_count
+        dlq_item = json.dumps(dlq_payload)
         try:
             moved = await self._move_to_dlq_script(
                 keys=[self.processing_key, self.dlq_key],
@@ -331,6 +345,18 @@ class QueueService:
             return await self.redis_client.llen(self.dlq_key)
         except redis.RedisError:
             logger.exception("Failed to get DLQ size")
+            raise
+
+    async def get_delayed_size(self) -> int:
+        """Get delayed retry queue size.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            return await self.redis_client.zcard(self.delayed_queue_key)
+        except redis.RedisError:
+            logger.exception("Failed to get delayed queue size")
             raise
 
 
