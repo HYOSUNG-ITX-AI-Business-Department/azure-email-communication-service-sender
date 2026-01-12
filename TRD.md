@@ -58,6 +58,42 @@
 - `/ready` and `/readyz`: readiness check with dependency status; returns 503 when not ready.
 - `/healthz`: liveness-only; always returns 200.
 
+## Observability
+
+### Health and Readiness Checks
+
+- Current implementation:
+  - Redis: `PING` via `queue_service.redis_client.ping()` when connected.
+  - DB: `SELECT 1` via `AsyncSessionLocal`.
+  - `/health` and `/ready` return 503 if any dependency check fails and include a `checks` map.
+  - Partial degradation is not supported (any failing dependency ⇒ not ready/unhealthy).
+- Recommended production settings:
+  - Add short, per-dependency timeouts (e.g., ~1s) and avoid retries to keep signals crisp.
+
+### Metrics
+
+- Required metrics (recommended):
+  - API: request rate, status codes, latency (p50/p90/p99).
+  - Worker: send attempts, success/failure rates, retry counts, DLQ moves, SMTP response code counts.
+  - Queue: sizes of `email:queue`, `email:processing`, `email:delayed`, `email:dlq`.
+- Collection:
+  - Recommended: Prometheus/OpenTelemetry exporter (not implemented in this repo yet).
+  - Interim: derive from DB statuses + logs; use Redis queries (or the queue stats endpoint) for queue sizes.
+- Cadence: collect at 15–60s intervals and roll up to 1m/5m windows for SLO tracking.
+
+### Logging
+
+- Recommended production requirements:
+  - Prefer structured JSON logs; include `email_id`, `caller_id`, `status`, `retry_count`, and error metadata.
+  - Use levels consistently: INFO for normal transitions, WARN for recoverable anomalies, ERROR for failures.
+  - Mask PII: do not log message bodies/attachments; redact or hash email addresses when possible.
+
+### Tracing
+
+- Optional: OpenTelemetry tracing with propagated context (e.g., `traceparent`).
+- Suggested spans: API request, DB operations, enqueue/dequeue, SMTP send.
+- Sampling: start low (e.g., 1–5%) in production and increase during incident investigations.
+
 ## Data Model
 
 ### `EmailRecord` (conceptual)

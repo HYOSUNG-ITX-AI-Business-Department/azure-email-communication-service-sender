@@ -74,10 +74,14 @@ Teams need a reliable, auditable way to send transactional email without embeddi
 
 ### Observability
 
-- Log key transitions and errors.
-- Provide health/readiness endpoints:
-  - `/health` and `/ready` reflect Redis+DB dependency status (503 when unhealthy).
+- Detailed specification: see [TRD Observability](TRD.md#observability).
+- Health/readiness endpoints:
+  - `/health` and `/ready` check Redis and DB dependencies and return 503 when unhealthy.
   - `/healthz` is liveness-only (always 200).
+  - Recommended: per-dependency timeouts (e.g., 1s) and no retries for these endpoints.
+- Metrics (recommended): submission rate, queue depth, retry/DLQ rates, delivery success rate, and latency p50/p90/p99.
+- Logging: prefer structured JSON logs with level guidance and PII masking.
+- Tracing (optional): OpenTelemetry with propagated trace context.
 
 ## Success Metrics
 
