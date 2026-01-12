@@ -259,12 +259,12 @@ class QueueService:
                 keys=[self.processing_key, self.queue_key],
                 args=[email_id],
             )
-            if self.redis_client is not None:
-                await self.redis_client.sadd(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception("Failed to requeue email %s", email_id)
             raise
         moved = int(moved or 0)
+        if moved > 0 and self.redis_client is not None:
+            await self.redis_client.sadd(self.queued_set_key, email_id)
         if moved == 0:
             logger.warning(
                 "Email %s not found in processing queue for requeue",
@@ -287,8 +287,6 @@ class QueueService:
                 keys=[self.processing_key, self.delayed_queue_key],
                 args=[email_id, score],
             )
-            if self.redis_client is not None:
-                await self.redis_client.sadd(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception(
                 "Failed to requeue email %s with delay %s",
@@ -297,6 +295,8 @@ class QueueService:
             )
             raise
         moved = int(moved or 0)
+        if moved > 0 and self.redis_client is not None:
+            await self.redis_client.sadd(self.queued_set_key, email_id)
         if moved == 0:
             logger.warning(
                 "Email %s not found in processing queue for delayed requeue",

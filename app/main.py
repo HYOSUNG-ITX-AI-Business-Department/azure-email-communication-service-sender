@@ -43,12 +43,13 @@ async def lifespan(_app: FastAPI):
     logger.info("Shutting down")
     if sweeper_task is not None:
         sweeper_task.cancel()
-        try:
-            await asyncio.wait_for(sweeper_task, timeout=5)
-        except asyncio.TimeoutError:
-            logger.warning("Sweeper task did not shutdown within timeout; forcing cancel")
-        except asyncio.CancelledError:
-            pass
+        done, pending = await asyncio.wait({sweeper_task}, timeout=5)
+        if pending:
+            logger.warning(
+                "Sweeper task did not shutdown within timeout; forcing cancel and waiting"
+            )
+            sweeper_task.cancel()
+            await asyncio.gather(sweeper_task, return_exceptions=True)
     await queue_service.disconnect()
 
 

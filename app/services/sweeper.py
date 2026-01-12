@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 SWEEPER_REENQUEUE_TOTAL_LOG_EVERY = 100
+SWEEPER_FAILED_TOTAL_LOG_EVERY = 100
 
 
 class SweeperService:
@@ -42,6 +43,7 @@ class SweeperService:
         self._requeued_total = 0
         self._skipped_total = 0
         self._errored_total = 0
+        self._failed_total = 0
 
     def _cutoff(self) -> datetime:
         return datetime.now(timezone.utc) - timedelta(seconds=self.grace_seconds)
@@ -85,12 +87,36 @@ class SweeperService:
 
             sweeper_requeue_count = getattr(record, "sweeper_requeue_count", 0) or 0
             if sweeper_requeue_count >= self.max_requeue_attempts:
-                self._skipped_total += 1
+                self._failed_total += 1
                 logger.warning(
-                    "Sweeper: email %s exceeded max sweeper requeue attempts (%s); skipping",
+                    "Sweeper: email %s exceeded max sweeper requeue attempts (%s); marking FAILED",
                     email_id,
                     self.max_requeue_attempts,
                 )
+                try:
+                    record.status = EmailStatus.FAILED.value
+                    await db.commit()
+                except Exception:
+                    self._errored_total += 1
+                    try:
+                        await db.rollback()
+                    except Exception:
+                        logger.exception(
+                            "Sweeper: failed to rollback after marking FAILED for %s",
+                            email_id,
+                        )
+                    logger.exception(
+                        "Sweeper: failed to persist FAILED status for %s",
+                        email_id,
+                    )
+                if self._failed_total % SWEEPER_FAILED_TOTAL_LOG_EVERY == 0:
+                    logger.info(
+                        "Sweeper progress: failed_total=%s requeued_total=%s skipped_total=%s errored_total=%s",
+                        self._failed_total,
+                        self._requeued_total,
+                        self._skipped_total,
+                        self._errored_total,
+                    )
                 continue
 
             try:
