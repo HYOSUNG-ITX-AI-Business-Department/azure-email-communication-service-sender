@@ -151,6 +151,10 @@
   - Implement a processing visibility timeout + reaper for `email:processing` (see Production readiness notes at the top of this document).
   - Periodically reconcile Redis queue entries against DB state and retention policy (e.g., remove ids that reference missing/deleted records).
   - Define a DLQ retention/archival policy (e.g., export to a durable store and cap in-Redis DLQ size via `LTRIM`).
+  - Suggested starting defaults (tune per deployment):
+    - `PROCESSING_VISIBILITY_TIMEOUT_SECONDS=300` (5 minutes)
+    - `QUEUE_STALE_ITEM_MAX_AGE_HOURS=168` (7 days)
+    - `DLQ_RETENTION_DAYS=7`
 
 ### Startup Scripts
 
@@ -242,7 +246,11 @@ Key environment variables:
       - If your retention is shorter than the window, idempotency can break early (records/keys disappear before the window ends).
       - If your retention is longer than the window, you likely need explicit key expiry/cleanup (or a separate idempotency store) so keys can expire before the underlying email records are deleted.
 - Operations (suggested future options):
-  - Queue retention: `PROCESSING_VISIBILITY_TIMEOUT_SECONDS`, `QUEUE_STALE_ITEM_MAX_AGE_HOURS`, `DLQ_MAX_ITEMS`, `DLQ_RETENTION_DAYS`
+  - Queue retention:
+    - `PROCESSING_VISIBILITY_TIMEOUT_SECONDS` (suggested default: `300`)
+    - `QUEUE_STALE_ITEM_MAX_AGE_HOURS` (suggested default: `168`)
+    - `DLQ_RETENTION_DAYS` (suggested default: `7`)
+    - `DLQ_MAX_ITEMS` (optional safety cap; consider archival first)
   - Worker tuning: `WORKER_COUNT`, `BATCH_SIZE`
   - Logging: `LOG_LEVEL`, `LOG_FORMAT`, `LOG_OUTPUT`
   - Keep a separate security/ops guide for production deployments.
