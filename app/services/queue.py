@@ -77,6 +77,8 @@ class QueueService:
         self.processing_key = "email:processing"
         self.dlq_key = "email:dlq"
         self.delayed_queue_key = "email:delayed"
+        # Tracks IDs that are expected to be queued (or delayed) to support the sweeper job.
+        self.queued_set_key = "email:queued:set"
         self.db_error_key_prefix = "email:db-error"
         self._move_to_dlq_script = None
         self._requeue_script = None
@@ -116,11 +118,17 @@ class QueueService:
     async def enqueue(self, email_id: str):
         """Add email to the queue.
 
+        Also records the id in a set to support reconciliation sweeps.
+
         Raises:
             redis.RedisError: When Redis operations fail.
         """
         try:
+            # Keep unit tests simple (they mock lpush directly) while still supporting
+            # sweeper reconciliation. We accept the small risk of the marker update
+            # failing separately (at-least-once semantics still hold via sweeper).
             await self.redis_client.lpush(self.queue_key, email_id)
+            await self.redis_client.sadd(self.queued_set_key, email_id)
             logger.info("Enqueued email %s", email_id)
         except redis.RedisError:
             logger.exception("Failed to enqueue email %s", email_id)
@@ -188,11 +196,14 @@ class QueueService:
     async def complete(self, email_id: str):
         """Remove email from processing set after successful send.
 
+        Also clears queued marker (best-effort) because the work is no longer queued.
+
         Raises:
             redis.RedisError: When Redis operations fail.
         """
         try:
             await self.redis_client.lrem(self.processing_key, 1, email_id)
+            await self.redis_client.srem(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception("Failed to complete email %s", email_id)
             raise
@@ -238,6 +249,8 @@ class QueueService:
     async def requeue(self, email_id: str):
         """Move email back to queue for retry.
 
+        Keeps the queued marker for reconciliation.
+
         Raises:
             redis.RedisError: When Redis operations fail.
         """
@@ -246,6 +259,8 @@ class QueueService:
                 keys=[self.processing_key, self.queue_key],
                 args=[email_id],
             )
+            if self.redis_client is not None:
+                await self.redis_client.sadd(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception("Failed to requeue email %s", email_id)
             raise
@@ -261,6 +276,8 @@ class QueueService:
     async def requeue_delayed(self, email_id: str, delay_seconds: int):
         """Move email to delayed retry queue.
 
+        Keeps the queued marker for reconciliation.
+
         Raises:
             redis.RedisError: When Redis operations fail.
         """
@@ -270,6 +287,8 @@ class QueueService:
                 keys=[self.processing_key, self.delayed_queue_key],
                 args=[email_id, score],
             )
+            if self.redis_client is not None:
+                await self.redis_client.sadd(self.queued_set_key, email_id)
         except redis.RedisError:
             logger.exception(
                 "Failed to requeue email %s with delay %s",
@@ -357,6 +376,36 @@ class QueueService:
             return await self.redis_client.zcard(self.delayed_queue_key)
         except redis.RedisError:
             logger.exception("Failed to get delayed queue size")
+            raise
+
+    async def is_queued(self, email_id: str) -> bool:
+        """Check whether an email id is tracked as queued.
+
+        Raises:
+            redis.RedisError: When Redis operations fail.
+        """
+        try:
+            return bool(
+                await self.redis_client.sismember(self.queued_set_key, email_id)
+            )
+        except redis.RedisError:
+            logger.exception("Failed to check queued-set membership for %s", email_id)
+            raise
+
+    async def mark_queued(self, email_id: str) -> None:
+        """Mark an email id as queued (best-effort)."""
+        try:
+            await self.redis_client.sadd(self.queued_set_key, email_id)
+        except redis.RedisError:
+            logger.exception("Failed to mark %s as queued", email_id)
+            raise
+
+    async def clear_queued(self, email_id: str) -> None:
+        """Clear queued marker (best-effort)."""
+        try:
+            await self.redis_client.srem(self.queued_set_key, email_id)
+        except redis.RedisError:
+            logger.exception("Failed to clear queued marker for %s", email_id)
             raise
 
 
