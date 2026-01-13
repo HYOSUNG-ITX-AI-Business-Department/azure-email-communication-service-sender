@@ -221,6 +221,8 @@ curl -X POST http://localhost:8000/api/v1/emails/ \
 
 **Endpoint**: `GET /api/v1/emails/`
 
+이 엔드포인트는 운영/모니터링 목적이며, 신뢰 가능한 상위 컴포넌트(API Gateway/Service Mesh)가 주입한 `X-Caller-Id`를 전제로 합니다. 또한 `QUEUE_STATS_ALLOWED_CALLERS` 설정에 포함된 caller만 접근할 수 있습니다.
+
 **Response** (200 OK):
 
 ```json
