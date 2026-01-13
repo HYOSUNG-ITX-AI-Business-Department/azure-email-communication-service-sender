@@ -27,6 +27,9 @@ ENV/
 
 # Environment variables
 .env
+.worktrees/
+.gitignore.local.bak
+.gitignore.2.local.bak
 
 # Database
 *.db
