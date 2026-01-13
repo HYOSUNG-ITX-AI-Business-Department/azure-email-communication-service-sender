@@ -107,7 +107,7 @@ alembic downgrade -1
 
 대응:
 
-1. 즉시 `DEBUG` 설정 및 배포 파이프라인 확인(프로덕션에서 `DEBUG=true`가 되지 않았는지)
+1. 즉시 `DEBUG` 설정 및 배포 파이프라인 확인(프로덕션에서 `DEBUG`가 활성화되지 않았는지)
 2. Alembic revision 상태 확인
    - `alembic current`
    - `alembic heads`
@@ -130,9 +130,9 @@ alembic downgrade -1
 
 ## 5) CI/CD 게이트(권장)
 
-실제 배포 워크플로우가 있는 경우, 배포 직전에 **최종 환경에서 `DEBUG=true`를 금지**하는 게이트를 추가해야 합니다.
+실제 배포 워크플로우가 있는 경우, 배포 직전에 **최종 환경에서 DEBUG 활성화를 금지**하는 게이트를 추가해야 합니다.
 
 - 예: 배포 job 시작 전에 `DEBUG` 값 검증
-- 예: Helm/Kustomize/Task definition 등 최종 산출물에서 `DEBUG=true` 탐지 시 실패
+- 예: Helm/Kustomize/Task definition 등 최종 산출물에서 DEBUG 활성화 탐지 시 실패
 
-이 레포에서는 최소 안전장치로 PR에서 `DEBUG=true` 문자열이 추가되는 것을 차단하는 워크플로우를 제공합니다.
+이 레포에서는 최소 안전장치로 “Deny DEBUG (true)” 워크플로우를 통해 DEBUG 활성화 설정이 레포에 들어오는 것을 차단합니다. (문서에서는 `DEBUG=<true>` 같은 형태로 표현합니다.)
