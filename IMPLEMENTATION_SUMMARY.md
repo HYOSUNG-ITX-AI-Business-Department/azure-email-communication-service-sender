@@ -167,4 +167,4 @@ Implemented the core functionality from the problem statement, including:
 - ✅ Status checking, idempotency, retry, DLQ
 - ✅ Audit trail and observability
 
-The system can be deployed after environment-specific validation; for production, run migrations (SQLAlchemy `create_all` is only used when `DEBUG=true`) and consider CI security scans.
+The system can be deployed after environment-specific validation; for production, run migrations (SQLAlchemy `create_all` is only used when DEBUG is enabled) and consider CI security scans.
