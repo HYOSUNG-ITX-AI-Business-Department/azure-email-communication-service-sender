@@ -82,6 +82,7 @@ def calculate_backoff_delay(
 
 
 def _start_worker_metrics_server() -> None:
+    """Start the Prometheus metrics HTTP server for the worker, if enabled."""
     if not settings.metrics_enabled:
         return
 
@@ -449,12 +450,30 @@ async def poll_delayed_queue(poll_interval: float = 1.0, batch_size: int = 100) 
             await asyncio.sleep(poll_interval)
 
 
+async def poll_processing_reaper(
+    poll_interval: float = 60.0,
+    batch_size: int = 100,
+) -> None:
+    """Reap stuck processing emails back to queue."""
+    while not shutdown_flag:
+        try:
+            moved = await queue_service.reap_processing(max_batch=batch_size)
+            if moved == 0:
+                await asyncio.sleep(poll_interval)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.exception("Error reaping processing queue")
+            await asyncio.sleep(poll_interval)
+
+
 async def worker():
     """Main worker loop"""
     global shutdown_flag
 
     engine = None
     delayed_task = None
+    reaper_task = None
     metrics_task = None
     AsyncSessionLocal = None
 
@@ -477,6 +496,13 @@ async def worker():
         await queue_service.connect()
 
         delayed_task = asyncio.create_task(poll_delayed_queue())
+        if settings.processing_reaper_enabled:
+            reaper_task = asyncio.create_task(
+                poll_processing_reaper(
+                    poll_interval=float(settings.processing_reaper_interval_seconds),
+                    batch_size=int(settings.processing_reaper_batch_size),
+                )
+            )
         worker_metrics_interval = (
             float(settings.worker_metrics_poll_interval_seconds)
             if settings.metrics_enabled
@@ -506,6 +532,10 @@ async def worker():
                     delayed_task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
                         await delayed_task
+                if reaper_task and not reaper_task.done():
+                    reaper_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await reaper_task
                 if metrics_task and not metrics_task.done():
                     metrics_task.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
@@ -514,6 +544,13 @@ async def worker():
                 await asyncio.sleep(5)
                 await queue_service.connect()
                 delayed_task = asyncio.create_task(poll_delayed_queue())
+                if settings.processing_reaper_enabled:
+                    reaper_task = asyncio.create_task(
+                        poll_processing_reaper(
+                            poll_interval=float(settings.processing_reaper_interval_seconds),
+                            batch_size=int(settings.processing_reaper_batch_size),
+                        )
+                    )
                 if settings.metrics_enabled:
                     metrics_task = asyncio.create_task(
                         poll_queue_metrics(poll_interval=worker_metrics_interval)
@@ -528,6 +565,10 @@ async def worker():
             delayed_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await delayed_task
+        if reaper_task is not None:
+            reaper_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await reaper_task
         if metrics_task is not None:
             metrics_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
