@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
@@ -47,9 +47,10 @@ async def get_authenticated_caller_id(
     return caller_id
 
 
-@router.post("/", response_model=EmailResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/", response_model=EmailResponse)
 async def send_email(
     email_request: EmailRequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),  # noqa: B008
     authenticated_caller_id: str = Depends(get_authenticated_caller_id),  # noqa: B008
 ):
@@ -84,6 +85,8 @@ async def send_email(
         # Create and validate email record
         email_record = await email_service.create_email(db, email_request)
 
+        enqueued = False
+
         # Guard against idempotency replays causing duplicate queue entries.
         if email_record.status == EmailStatus.PENDING.value:
             email_record = await email_service.update_status(
@@ -92,6 +95,7 @@ async def send_email(
 
             try:
                 await queue_service.enqueue(email_record.id)
+                enqueued = True
             except Exception as err:
                 logger.exception("Failed to enqueue email %s", email_record.id)
                 try:
@@ -121,6 +125,13 @@ async def send_email(
             )
             response_status = EmailStatus.FAILED
         
+        # HTTP semantics:
+        # - New submission: 202 Accepted (async processing)
+        # - Idempotency replay: 200 OK (existing resource)
+        response.status_code = (
+            status.HTTP_202_ACCEPTED if enqueued else status.HTTP_200_OK
+        )
+
         logger.info("Email %s submitted successfully", email_record.id)
         
         return EmailResponse(

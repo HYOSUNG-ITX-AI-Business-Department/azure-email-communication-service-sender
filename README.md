@@ -171,13 +171,26 @@ Configuration is done via environment variables (`.env` file):
 - `caller_id` (required): Caller identifier for multi-tenant isolation
 - `idempotency_key` (optional): Unique key to prevent duplicate submissions
 
-**Response** (202 Accepted):
+**Response** (202 Accepted, 신규 제출):
 
 ```json
 {
   "email_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "queued",
   "message": "Email queued for sending",
+  "created_at": "2026-01-08T01:00:00"
+}
+```
+
+**Response** (200 OK, idempotency replay):
+
+동일한 `caller_id + idempotency_key`를 **동일 payload**로 재전송하면, 기존 요청을 재사용하며 **기존 `email_id`와 현재 상태**를 반환합니다.
+
+```json
+{
+  "email_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "sent",
+  "message": "Email already exists",
   "created_at": "2026-01-08T01:00:00"
 }
 ```

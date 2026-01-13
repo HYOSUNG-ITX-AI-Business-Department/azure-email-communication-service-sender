@@ -206,7 +206,7 @@ async def test_send_email_idempotency_replay_does_not_enqueue():
                 headers={"X-Caller-Id": "test-caller"},
             )
 
-        assert response.status_code == status.HTTP_202_ACCEPTED
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["email_id"] == "test-email-id"
         assert data["status"] == EmailStatus.SENT.value
@@ -337,7 +337,7 @@ async def test_send_email_with_all_fields():
         is_html=1,
         headers={"X-Custom": "value"},
         tags=["tag1", "tag2"],
-        status=EmailStatus.QUEUED.value,
+        status=EmailStatus.PENDING.value,
         retry_count=0,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
@@ -768,7 +768,7 @@ async def test_send_email_with_attachments():
             "content_type": "application/pdf",
             "content_base64": "dGVzdA=="
         }],
-        status=EmailStatus.QUEUED.value,
+        status=EmailStatus.PENDING.value,
         retry_count=0,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
