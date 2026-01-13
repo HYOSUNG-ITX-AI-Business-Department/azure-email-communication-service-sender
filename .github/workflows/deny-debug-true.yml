@@ -1,0 +1,43 @@
+name: Deny DEBUG=true
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  deny-debug-true:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail if DEBUG=true is introduced
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Only scan files that commonly carry environment/config. Keep scope small to reduce false positives.
+          files=$(git ls-files \
+            '.env*' \
+            'docker-compose*.yml' \
+            'Dockerfile' \
+            'README.md' \
+            'TRD.md' \
+            'PRD.md' \
+            'docs/**/*.md' \
+            || true)
+
+          if [ -z "$files" ]; then
+            echo "No candidate files found; skipping."
+            exit 0
+          fi
+
+          # Block literal DEBUG=true. (Case-sensitive by design.)
+          if grep -nH -F 'DEBUG=true' $files; then
+            echo
+            echo "ERROR: Found 'DEBUG=true' in repository files. Production must keep DEBUG=false."
+            exit 1
+          fi
+
+          echo "OK: No DEBUG=true found in scanned files."
