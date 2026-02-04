@@ -5,7 +5,7 @@
 Please **do not** open public issues for security-sensitive reports.
 
 - Preferred: Use **GitHub Private Vulnerability Reporting** at
-  https://github.com/HYOSUNG-ITX-AI-Business-Department/azure-email-communication-service-sender/security/advisories/new
+  <https://github.com/HYOSUNG-ITX-AI-Business-Department/azure-email-communication-service-sender/security/advisories/new>
 - If Private Vulnerability Reporting is not available, open a GitHub issue with
   **minimal details** and clearly mark it as security-related so maintainers can
   move the discussion to a private channel.
