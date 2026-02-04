@@ -1,10 +1,10 @@
-FROM python:3.14-slim
+FROM python:3.14-slim@sha256:1a3c6dbfd2173971abba880c3cc2ec4643690901f6ad6742d0827bae6cefc925
 
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies (pinned + hashed)
+COPY requirements.lock .
+RUN python -m pip install --no-cache-dir --require-hashes -r requirements.lock
 
 # Copy application code
 COPY app/ ./app/

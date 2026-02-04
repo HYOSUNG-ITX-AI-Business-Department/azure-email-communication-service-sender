@@ -24,6 +24,7 @@ wheels/
 venv/
 env/
 ENV/
+.venv/
 
 # Environment variables
 .env
@@ -55,3 +56,7 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local opencode/automation artifacts
+registered_agents.json
+task_agent_mapping.json
