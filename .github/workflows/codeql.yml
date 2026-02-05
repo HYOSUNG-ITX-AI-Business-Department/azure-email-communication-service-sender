@@ -8,6 +8,7 @@ on:
       - develop
   schedule:
     - cron: "20 2 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
