@@ -13,7 +13,8 @@ import sys
 import atheris
 from pydantic import ValidationError
 
-from app.schemas.email import EmailRequest
+with atheris.instrument_imports():
+    from app.schemas.email import EmailRequest
 
 # Maximum input size to avoid excessive CPU/memory usage on pathological inputs.
 MAX_INPUT_SIZE = 200_000
