@@ -19,15 +19,19 @@ export PYTHONPATH="$SRC/azure-email-communication-service-sender"
 # Build fuzzers into $OUT.
 find "$SRC" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
 	fuzzer_basename=$(basename -s .py "$fuzzer")
-	fuzzer_package="${fuzzer_basename}_pkg"
+	fuzzer_package="${fuzzer_basename}.pkg"
+	pyinstaller_output_name="${fuzzer_basename}_pkg"
 
 	pyinstaller \
 		--distpath "$OUT" \
 		--onefile \
 		--paths "$SRC/azure-email-communication-service-sender" \
 		--hidden-import backports.tarfile \
-		--name "$fuzzer_package" \
+		--name "$pyinstaller_output_name" \
 		"$fuzzer"
+
+	# ClusterFuzzLite expects the packaged target to be named <fuzzer>.pkg.
+	mv "$OUT/$pyinstaller_output_name" "$OUT/$fuzzer_package"
 
 	# Create execution wrapper.
 	# NOTE: For pure-python fuzzing (no native extensions), we intentionally do
