@@ -7,6 +7,10 @@ set -o pipefail
 # Install runtime dependencies so fuzz harnesses can import application code.
 pip3 install --no-cache-dir -r requirements.txt
 
+# PyInstaller runtime hook for pkg_resources may require backports.tarfile
+# (via jaraco.context) on Python < 3.12. Pin explicitly to keep builds stable.
+pip3 install --no-cache-dir backports.tarfile==1.2.0
+
 # PyInstaller is used to package fuzzers into stable, standalone executables.
 pip3 install --no-cache-dir pyinstaller==6.11.1
 
@@ -21,6 +25,7 @@ find "$SRC" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
 		--distpath "$OUT" \
 		--onefile \
 		--paths "$SRC/azure-email-communication-service-sender" \
+		--hidden-import backports.tarfile \
 		--name "$fuzzer_package" \
 		"$fuzzer"
 
