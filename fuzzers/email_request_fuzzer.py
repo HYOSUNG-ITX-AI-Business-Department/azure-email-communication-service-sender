@@ -21,7 +21,7 @@ def _should_skip_input(data: bytes) -> bool:
     return len(data) > 200_000
 
 
-def TestOneInput(data: bytes) -> None:  # noqa: N802 (Atheris convention)
+def TestOneInput(data: bytes) -> None:
     if _should_skip_input(data):
         return
 

@@ -1,5 +1,7 @@
 #!/bin/bash -eu
 
+set -o pipefail
+
 # Ref: https://google.github.io/clusterfuzzlite/build-integration/python-lang/
 
 # Install runtime dependencies so fuzz harnesses can import application code.
@@ -11,7 +13,7 @@ pip3 install --no-cache-dir pyinstaller==6.11.1
 export PYTHONPATH="$SRC/azure-email-communication-service-sender"
 
 # Build fuzzers into $OUT.
-for fuzzer in $(find "$SRC" -name '*_fuzzer.py'); do
+find "$SRC" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
 	fuzzer_basename=$(basename -s .py "$fuzzer")
 	fuzzer_package="${fuzzer_basename}_pkg"
 
