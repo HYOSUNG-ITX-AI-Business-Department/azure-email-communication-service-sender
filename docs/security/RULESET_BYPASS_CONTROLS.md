@@ -11,7 +11,7 @@ This repository currently has:
 - **Repository ruleset** (no bypass actors) that enforces:
   - PR-only changes
   - 2 approving reviews
-  - required status checks (test / dependency-review / deny-debug-true / analyze)
+  - required status checks (`test` / `dependency-review` / `deny-debug-true` / `analyze`)
   - required resolution of review threads
 - **Organization ruleset** that may include bypass actors for operational
   reasons (e.g., repository migration, deploy keys, integrations).
@@ -89,5 +89,5 @@ with a justification referencing:
 
 ## Related
 
-- Issue: Scorecard BranchProtectionID bypass actors discussion
+- Issue #34: Scorecard BranchProtectionID bypass actors discussion
 - GitHub Actions required status checks are enforced via repository rulesets
