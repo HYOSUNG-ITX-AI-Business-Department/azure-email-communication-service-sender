@@ -277,6 +277,8 @@ This separation allows you to:
 - Certificate validation is enabled
 - Environment variables should be kept secure
 - Use strong passwords for SMTP authentication
+- Vulnerability reporting: see [SECURITY.md](SECURITY.md)
+- Branch protection / ruleset controls: see [docs/security/RULESET_BYPASS_CONTROLS.md](docs/security/RULESET_BYPASS_CONTROLS.md)
 
 ## Monitoring
 
