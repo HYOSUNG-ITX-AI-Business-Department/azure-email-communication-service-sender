@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 def Setup(
-    argv: Sequence[str],
+    args: Sequence[str],
     test_one_input: Callable[[bytes], None],
+    internal_libfuzzer: Optional[bool] = None,
+    custom_mutator: Optional[Callable[..., Any]] = None,
+    custom_crossover: Optional[Callable[..., Any]] = None,
     enable_python_coverage: bool = True,
-    enable_python_opcode_coverage: bool | None = None,
-    custom_mutator: Callable[..., Any] | None = None,
-    custom_crossover: Callable[..., Any] | None = None,
+    enable_python_opcode_coverage: bool = True,
 ) -> None: ...
 def Fuzz() -> None: ...
