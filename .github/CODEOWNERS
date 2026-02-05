@@ -8,7 +8,6 @@
 # Protect this file and GitHub automation config explicitly.
 # NOTE: CODEOWNERS uses the *last* matching pattern, so the more specific
 # patterns must come after the wildcard.
-/.github/CODEOWNERS @HYOSUNG-ITX-AI-Business-Department/ai-service-team
 /.github/ @HYOSUNG-ITX-AI-Business-Department/ai-service-team
 
 # Example (optional): add more granular owners later.
