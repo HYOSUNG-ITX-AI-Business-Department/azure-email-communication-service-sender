@@ -15,10 +15,13 @@ from pydantic import ValidationError
 
 from app.schemas.email import EmailRequest
 
+# Maximum input size to avoid excessive CPU/memory usage on pathological inputs.
+MAX_INPUT_SIZE = 200_000
+
 
 def _should_skip_input(data: bytes) -> bool:
     # Avoid excessive CPU/memory usage on pathological inputs.
-    return len(data) > 200_000
+    return len(data) > MAX_INPUT_SIZE
 
 
 def TestOneInput(data: bytes) -> None:
