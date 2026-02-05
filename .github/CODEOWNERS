@@ -2,4 +2,12 @@
 #
 # Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
+# Protect this file and GitHub automation config explicitly.
+/.github/CODEOWNERS @HYOSUNG-ITX-AI-Business-Department/ai-service-team
+/.github/ @HYOSUNG-ITX-AI-Business-Department/ai-service-team
+
 * @HYOSUNG-ITX-AI-Business-Department/ai-service-team
+
+# Example (optional): add more granular owners later.
+# /.github/workflows/ @HYOSUNG-ITX-AI-Business-Department/devops-team
+# /docs/ @HYOSUNG-ITX-AI-Business-Department/docs-team
