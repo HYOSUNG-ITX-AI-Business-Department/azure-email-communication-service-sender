@@ -1,0 +1,38 @@
+#!/bin/bash -eu
+
+# Ref: https://google.github.io/clusterfuzzlite/build-integration/python-lang/
+
+# Install runtime dependencies so fuzz harnesses can import application code.
+pip3 install --no-cache-dir -r requirements.txt
+
+# PyInstaller is used to package fuzzers into stable, standalone executables.
+pip3 install --no-cache-dir pyinstaller==6.11.1
+
+export PYTHONPATH="$SRC/azure-email-communication-service-sender"
+
+# Build fuzzers into $OUT.
+for fuzzer in $(find "$SRC" -name '*_fuzzer.py'); do
+	fuzzer_basename=$(basename -s .py "$fuzzer")
+	fuzzer_package="${fuzzer_basename}_pkg"
+
+	pyinstaller \
+		--distpath "$OUT" \
+		--onefile \
+		--paths "$SRC/azure-email-communication-service-sender" \
+		--name "$fuzzer_package" \
+		"$fuzzer"
+
+	# Create execution wrapper.
+	# NOTE: For pure-python fuzzing (no native extensions), we intentionally do
+	# not LD_PRELOAD sanitizer libraries to avoid startup crashes.
+	cat >"$OUT/$fuzzer_basename" <<'EOF'
+#!/bin/sh
+# LLVMFuzzerTestOneInput for fuzzer detection.
+this_dir=$(dirname "$0")
+exec "$this_dir/REPLACE_PACKAGE" "$@"
+EOF
+
+	sed -i.bak "s/REPLACE_PACKAGE/$fuzzer_package/g" "$OUT/$fuzzer_basename"
+	rm -f "$OUT/$fuzzer_basename.bak"
+	chmod +x "$OUT/$fuzzer_basename"
+done
