@@ -1,0 +1,6 @@
+from __future__ import annotations
+
+from typing import Any, Callable, Sequence
+
+def Setup(argv: Sequence[str], test_one_input: Callable[[bytes], None]) -> None: ...
+def Fuzz() -> None: ...
