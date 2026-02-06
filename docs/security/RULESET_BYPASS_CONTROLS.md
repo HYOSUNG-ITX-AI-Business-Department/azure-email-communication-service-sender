@@ -15,7 +15,7 @@ This repository currently has:
     - test
     - dependency-review
     - deny-debug-true
-    - CodeQL (workflow job id: `analyze`; may appear as "Analyze" in the UI)
+    - CodeQL / Analyze (작업 ID: `analyze`)
   - required resolution of review threads
 - **Organization ruleset** that may include bypass actors for operational
   reasons (e.g., repository migration, deploy keys, integrations).
