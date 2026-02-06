@@ -21,7 +21,9 @@ link).
 
 1) Enroll the repository and connect it to GitHub.
 2) Target at least the **Passing** level.
-3) After the project is created, add the badge to `README.md`:
+3) After the project is created, add the badge to `README.md`.
+   Do **not** commit the placeholder `<PROJECT_ID>`; replace it with the actual
+   numeric project ID first.
 
 ```markdown
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/<PROJECT_ID>/badge)](
@@ -31,13 +33,27 @@ link).
 
 ## Repository checklist (common items)
 
-These items often help reach **Passing**:
+This section maps common repo items to the OpenSSF Best Practices levels.
 
-- ✅ OSI-approved license file present (`LICENSE`)
-- ✅ Security policy present (`SECURITY.md`)
-- ✅ CI runs on pull requests and default branch (`.github/workflows/*.yml`)
-- ✅ Code review required for protected branches (rulesets)
-- ✅ Dependency update automation (Dependabot)
+Sources:
+
+- Passing criteria: <https://www.bestpractices.dev/en/criteria/0>
+- All levels: <https://www.bestpractices.dev/en/criteria>
+
+### Passing (MUST / required)
+
+- ✅ LICENSE is published in the repo (`LICENSE`) (license location MUST)
+- ✅ Vulnerability reporting process is published (`SECURITY.md`) (MUST)
+- ✅ At least one automated test suite exists and is documented (MUST)
+
+### Passing (SUGGESTED / recommended)
+
+- ✅ Continuous integration runs automated tests (SUGGESTED)
+
+### Silver / Gold (higher levels)
+
+- ✅ Dependency monitoring / update process (e.g., Dependabot) (Silver MUST)
+- ✅ Code review by someone other than the author (Gold MUST)
 
 Potential follow-ups (if required by the badge questionnaire):
 
