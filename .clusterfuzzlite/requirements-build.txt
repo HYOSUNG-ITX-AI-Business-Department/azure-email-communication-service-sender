@@ -1,0 +1,6 @@
+# Build-time dependencies for ClusterFuzzLite fuzzers.
+#
+# Keep this list minimal: only what the build script installs explicitly.
+
+backports.tarfile==1.2.0
+pyinstaller==6.18.0

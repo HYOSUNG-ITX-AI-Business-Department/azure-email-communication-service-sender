@@ -4,17 +4,16 @@ set -o pipefail
 
 # Ref: https://google.github.io/clusterfuzzlite/build-integration/python-lang/
 
+repo_dir="$SRC/azure-email-communication-service-sender"
+
 # Install runtime dependencies so fuzz harnesses can import application code.
-python3 -m pip install --no-cache-dir --require-hashes -r requirements.lock
+python3 -m pip install --no-cache-dir --require-hashes -r "$repo_dir/requirements.lock"
 
-# PyInstaller runtime hook for pkg_resources may require backports.tarfile
-# (via jaraco.context) on Python < 3.12. Pin explicitly to keep builds stable.
-python3 -m pip install --no-cache-dir backports.tarfile==1.2.0
+# Install build-time requirements (PyInstaller, etc.) with hash verification.
+python3 -m pip install --no-cache-dir --require-hashes \
+	-r "$repo_dir/.clusterfuzzlite/requirements-build.lock"
 
-# PyInstaller is used to package fuzzers into stable, standalone executables.
-python3 -m pip install --no-cache-dir pyinstaller==6.18.0
-
-export PYTHONPATH="$SRC/azure-email-communication-service-sender"
+export PYTHONPATH="$repo_dir"
 
 # Build fuzzers into $OUT.
 find "$SRC" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
