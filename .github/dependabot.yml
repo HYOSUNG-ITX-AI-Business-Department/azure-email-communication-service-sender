@@ -57,3 +57,14 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+
+  # Docker dependencies for ClusterFuzzLite build integration
+  - package-ecosystem: "docker"
+    directory: "/.clusterfuzzlite"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "docker"

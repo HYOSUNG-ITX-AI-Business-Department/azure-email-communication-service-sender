@@ -39,7 +39,7 @@ find "$SRC" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
 	cat >"$OUT/$fuzzer_basename" <<'EOF'
 #!/bin/sh
 # LLVMFuzzerTestOneInput for fuzzer detection.
-this_dir=$(dirname "$0")
+this_dir=$(cd "$(dirname "$0")" && pwd -P)
 exec "$this_dir/REPLACE_PACKAGE" "$@"
 EOF
 
