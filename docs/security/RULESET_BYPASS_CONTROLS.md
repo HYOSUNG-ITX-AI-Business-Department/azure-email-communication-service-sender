@@ -11,7 +11,11 @@ This repository currently has:
 - **Repository ruleset** (no bypass actors) that enforces:
   - PR-only changes
   - 2 approving reviews
-  - required status checks (test / dependency-review / deny-debug-true / CodeQL)
+  - required status checks:
+    - test
+    - dependency-review
+    - deny-debug-true
+    - analyze (CodeQL)
     - NOTE: Code scanning required-check context is "CodeQL".
       The CodeQL workflow job id is `analyze` and it may appear as "Analyze" in
       the Actions UI.
@@ -93,5 +97,5 @@ with a justification referencing:
 
 ## Related
 
-- Issue: Scorecard BranchProtectionID bypass actors discussion
+- Issue: #34 (Scorecard BranchProtectionID bypass actors discussion)
 - GitHub Actions required status checks are enforced via repository rulesets
