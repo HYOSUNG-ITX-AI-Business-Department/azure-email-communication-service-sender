@@ -12,9 +12,9 @@ This repository currently has:
   - PR-only changes
   - 2 approving reviews
   - required status checks (test / dependency-review / deny-debug-true / CodeQL)
-    - NOTE: The CodeQL workflow job often appears as "Analyze" in Actions UI,
-      but the required check context enforced by the repository ruleset is
-      "CodeQL" (code scanning).
+    - NOTE: Code scanning required-check context is "CodeQL".
+      The CodeQL workflow job id is `analyze` and it may appear as "Analyze" in
+      the Actions UI.
   - required resolution of review threads
 - **Organization ruleset** that may include bypass actors for operational
   reasons (e.g., repository migration, deploy keys, integrations).
@@ -42,7 +42,10 @@ The following controls remain in place at the repository level:
 - **Require 2 approvals**
 - **Require required status checks** (strict)
 - **Code scanning (CodeQL) and dependency review** workflows are enabled
-- **Runner hardening** is enabled in CI
+- **Runner hardening** is enabled in CI via `step-security/harden-runner` in:
+  - `.github/workflows/ci.yml`
+  - `.github/workflows/codeql.yml`
+  - `.github/workflows/dependency-review.yml`
 
 These controls mitigate the risk for day-to-day development changes.
 
