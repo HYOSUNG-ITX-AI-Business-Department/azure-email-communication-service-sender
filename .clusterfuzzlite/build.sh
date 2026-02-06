@@ -5,14 +5,14 @@ set -o pipefail
 # Ref: https://google.github.io/clusterfuzzlite/build-integration/python-lang/
 
 # Install runtime dependencies so fuzz harnesses can import application code.
-pip3 install --no-cache-dir -r requirements.txt
+python3 -m pip install --no-cache-dir --require-hashes -r requirements.lock
 
 # PyInstaller runtime hook for pkg_resources may require backports.tarfile
 # (via jaraco.context) on Python < 3.12. Pin explicitly to keep builds stable.
-pip3 install --no-cache-dir backports.tarfile==1.2.0
+python3 -m pip install --no-cache-dir backports.tarfile==1.2.0
 
 # PyInstaller is used to package fuzzers into stable, standalone executables.
-pip3 install --no-cache-dir pyinstaller==6.11.1
+python3 -m pip install --no-cache-dir pyinstaller==6.18.0
 
 export PYTHONPATH="$SRC/azure-email-communication-service-sender"
 
