@@ -11,14 +11,11 @@ This repository currently has:
 - **Repository ruleset** (no bypass actors) that enforces:
   - PR-only changes
   - 2 approving reviews
-  - required status checks:
+  - required status checks (ruleset contexts):
     - test
     - dependency-review
     - deny-debug-true
-    - analyze (CodeQL)
-    - NOTE: Code scanning required-check context is "CodeQL".
-      The CodeQL workflow job id is `analyze` and it may appear as "Analyze" in
-      the Actions UI.
+    - CodeQL (workflow job id: `analyze`; may appear as "Analyze" in the UI)
   - required resolution of review threads
 - **Organization ruleset** that may include bypass actors for operational
   reasons (e.g., repository migration, deploy keys, integrations).
@@ -97,5 +94,6 @@ with a justification referencing:
 
 ## Related
 
-- Issue: #34 (Scorecard BranchProtectionID bypass actors discussion)
+- Issue: [#34](https://github.com/HYOSUNG-ITX-AI-Business-Department/azure-email-communication-service-sender/issues/34)
+  (Scorecard BranchProtectionID bypass actors discussion)
 - GitHub Actions required status checks are enforced via repository rulesets
