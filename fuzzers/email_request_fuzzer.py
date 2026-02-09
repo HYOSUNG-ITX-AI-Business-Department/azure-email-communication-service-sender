@@ -13,7 +13,9 @@ import sys
 import atheris
 from pydantic import ValidationError
 
-from app.schemas.email import EmailRequest
+with atheris.instrument_imports():
+    # Instrument our application code for better Python coverage.
+    from app.schemas.email import EmailRequest
 
 
 def _should_skip_input(data: bytes) -> bool:

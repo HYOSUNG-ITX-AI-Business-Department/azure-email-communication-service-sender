@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from typing import Callable, ContextManager, Sequence
 
+def instrument_imports(
+    include: Sequence[str] = ..., exclude: Sequence[str] = ...
+) -> ContextManager[None]: ...
 def Setup(
     argv: Sequence[str], test_one_input: Callable[[bytes], None]
 ) -> None: ...
