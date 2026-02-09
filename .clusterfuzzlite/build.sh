@@ -16,7 +16,7 @@ python3 -m pip install --no-cache-dir --require-hashes \
 export PYTHONPATH="$repo_dir"
 
 # Build fuzzers into $OUT.
-find "$SRC" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
+find "$repo_dir" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
 	fuzzer_basename=$(basename -s .py "$fuzzer")
 	fuzzer_package="${fuzzer_basename}.pkg"
 	pyinstaller_output_name="${fuzzer_basename}_pkg"
@@ -24,7 +24,7 @@ find "$SRC" -name '*_fuzzer.py' -print0 | while IFS= read -r -d '' fuzzer; do
 	pyinstaller \
 		--distpath "$OUT" \
 		--onefile \
-		--paths "$SRC/azure-email-communication-service-sender" \
+		--paths "$repo_dir" \
 		--hidden-import backports.tarfile \
 		--name "$pyinstaller_output_name" \
 		"$fuzzer"

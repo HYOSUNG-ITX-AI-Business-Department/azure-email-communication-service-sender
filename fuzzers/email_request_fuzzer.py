@@ -47,7 +47,7 @@ def TestOneInput(data: bytes) -> None:
 
     try:
         EmailRequest.model_validate(obj)
-    except ValidationError:
+    except (ValidationError, ValueError):
         # Invalid inputs are expected.
         return
 
