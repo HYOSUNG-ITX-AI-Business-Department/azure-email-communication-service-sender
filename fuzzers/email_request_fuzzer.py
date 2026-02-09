@@ -18,6 +18,11 @@ from app.schemas.email import EmailRequest
 
 def _should_skip_input(data: bytes) -> bool:
     # Avoid excessive CPU/memory usage on pathological inputs.
+    #
+    # The EmailRequest JSON payload is expected to be relatively small (human-
+    # authored email metadata). Extremely large inputs tend to be unrealistic for
+    # this schema and can slow down fuzzing significantly without improving
+    # coverage.
     return len(data) > 200_000
 
 
