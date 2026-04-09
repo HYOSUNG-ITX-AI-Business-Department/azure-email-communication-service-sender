@@ -1,19 +1,12 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.config import settings
 from app.models.email import Base
 
 # Create async engine
-engine = create_async_engine(
-    settings.database_url,
-    echo=False,
-    future=True
-)
+engine = create_async_engine(settings.database_url, echo=False, future=True)
 
 # Create async session factory using async_sessionmaker
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    expire_on_commit=False
-)
+AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def init_db():

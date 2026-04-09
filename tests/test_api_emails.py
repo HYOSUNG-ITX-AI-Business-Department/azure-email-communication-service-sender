@@ -7,7 +7,6 @@ from app.schemas.email import EmailStatus
 from app.services.email import IdempotencyPayloadMismatchError
 from app.models.email import EmailRecord
 from datetime import datetime, timezone
-import json
 
 
 def get_test_client() -> AsyncClient:
@@ -32,7 +31,7 @@ async def test_send_email_success():
         retry_count=0,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
-        audit_log=[]
+        audit_log=[],
     )
 
     queued_email_record = EmailRecord(
@@ -49,14 +48,21 @@ async def test_send_email_success():
         updated_at=pending_email_record.updated_at,
         audit_log=[],
     )
-    
-    with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create, \
-         patch('app.api.emails.email_service.update_status', new_callable=AsyncMock) as mock_update, \
-         patch('app.api.emails.queue_service.enqueue', new_callable=AsyncMock) as mock_enqueue:
-        
+
+    with (
+        patch(
+            "app.api.emails.email_service.create_email", new_callable=AsyncMock
+        ) as mock_create,
+        patch(
+            "app.api.emails.email_service.update_status", new_callable=AsyncMock
+        ) as mock_update,
+        patch(
+            "app.api.emails.queue_service.enqueue", new_callable=AsyncMock
+        ) as mock_enqueue,
+    ):
         mock_create.return_value = pending_email_record
         mock_update.return_value = queued_email_record
-        
+
         async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
@@ -65,17 +71,17 @@ async def test_send_email_success():
                     "to": ["recipient@example.com"],
                     "subject": "Test Subject",
                     "body": "Test Body",
-                    "caller_id": "test-caller"
+                    "caller_id": "test-caller",
                 },
-                headers={"X-Caller-Id": "test-caller"}
+                headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_202_ACCEPTED
         data = response.json()
         assert data["email_id"] == "test-email-id"
         assert data["status"] == "queued"
         assert "message" in data
-        
+
         mock_create.assert_awaited_once()
         mock_update.assert_awaited_once_with(ANY, "test-email-id", EmailStatus.QUEUED)
         mock_enqueue.assert_awaited_once_with("test-email-id")
@@ -92,11 +98,11 @@ async def test_send_email_caller_id_mismatch():
                 "to": ["recipient@example.com"],
                 "subject": "Test Subject",
                 "body": "Test Body",
-                "caller_id": "caller-a"
+                "caller_id": "caller-a",
             },
-            headers={"X-Caller-Id": "caller-b"}
+            headers={"X-Caller-Id": "caller-b"},
         )
-    
+
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert "does not match" in response.json()["detail"]
 
@@ -112,10 +118,10 @@ async def test_send_email_missing_caller_id_header():
                 "to": ["recipient@example.com"],
                 "subject": "Test Subject",
                 "body": "Test Body",
-                "caller_id": "test-caller"
-            }
+                "caller_id": "test-caller",
+            },
         )
-    
+
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
@@ -141,9 +147,11 @@ async def test_send_email_empty_caller_id_header():
 @pytest.mark.asyncio
 async def test_send_email_idempotency_conflict():
     """Test idempotency key reuse with different payload returns conflict"""
-    with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create:
+    with patch(
+        "app.api.emails.email_service.create_email", new_callable=AsyncMock
+    ) as mock_create:
         mock_create.side_effect = IdempotencyPayloadMismatchError("Payload mismatch")
-        
+
         async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
@@ -153,11 +161,11 @@ async def test_send_email_idempotency_conflict():
                     "subject": "Test Subject",
                     "body": "Test Body",
                     "caller_id": "test-caller",
-                    "idempotency_key": "key-123"
+                    "idempotency_key": "key-123",
                 },
-                headers={"X-Caller-Id": "test-caller"}
+                headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.json()["detail"]
 
@@ -180,16 +188,20 @@ async def test_send_email_idempotency_replay_does_not_enqueue():
         audit_log=[],
     )
 
-    with patch(
-        "app.api.emails.email_service.create_email",
-        new_callable=AsyncMock,
-    ) as mock_create, patch(
-        "app.api.emails.email_service.update_status",
-        new_callable=AsyncMock,
-    ) as mock_update, patch(
-        "app.api.emails.queue_service.enqueue",
-        new_callable=AsyncMock,
-    ) as mock_enqueue:
+    with (
+        patch(
+            "app.api.emails.email_service.create_email",
+            new_callable=AsyncMock,
+        ) as mock_create,
+        patch(
+            "app.api.emails.email_service.update_status",
+            new_callable=AsyncMock,
+        ) as mock_update,
+        patch(
+            "app.api.emails.queue_service.enqueue",
+            new_callable=AsyncMock,
+        ) as mock_enqueue,
+    ):
         mock_create.return_value = existing_email
 
         async with get_test_client() as client:
@@ -217,9 +229,11 @@ async def test_send_email_idempotency_replay_does_not_enqueue():
 @pytest.mark.asyncio
 async def test_send_email_validation_error():
     """Test validation errors return 400"""
-    with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create:
+    with patch(
+        "app.api.emails.email_service.create_email", new_callable=AsyncMock
+    ) as mock_create:
         mock_create.side_effect = ValueError("Invalid envelope_from")
-        
+
         async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
@@ -228,11 +242,11 @@ async def test_send_email_validation_error():
                     "to": ["recipient@example.com"],
                     "subject": "Test Subject",
                     "body": "Test Body",
-                    "caller_id": "test-caller"
+                    "caller_id": "test-caller",
                 },
-                headers={"X-Caller-Id": "test-caller"}
+                headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Invalid envelope_from" in response.json()["detail"]
 
@@ -240,9 +254,11 @@ async def test_send_email_validation_error():
 @pytest.mark.asyncio
 async def test_send_email_internal_error():
     """Test internal errors return 500"""
-    with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create:
+    with patch(
+        "app.api.emails.email_service.create_email", new_callable=AsyncMock
+    ) as mock_create:
         mock_create.side_effect = Exception("Database connection failed")
-        
+
         async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
@@ -251,11 +267,11 @@ async def test_send_email_internal_error():
                     "to": ["recipient@example.com"],
                     "subject": "Test Subject",
                     "body": "Test Body",
-                    "caller_id": "test-caller"
+                    "caller_id": "test-caller",
                 },
-                headers={"X-Caller-Id": "test-caller"}
+                headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
@@ -277,16 +293,20 @@ async def test_send_email_enqueue_failure_marks_failed():
         audit_log=[],
     )
 
-    with patch(
-        "app.api.emails.email_service.create_email",
-        new_callable=AsyncMock,
-    ) as mock_create, patch(
-        "app.api.emails.email_service.update_status",
-        new_callable=AsyncMock,
-    ) as mock_update, patch(
-        "app.api.emails.queue_service.enqueue",
-        new_callable=AsyncMock,
-    ) as mock_enqueue:
+    with (
+        patch(
+            "app.api.emails.email_service.create_email",
+            new_callable=AsyncMock,
+        ) as mock_create,
+        patch(
+            "app.api.emails.email_service.update_status",
+            new_callable=AsyncMock,
+        ) as mock_update,
+        patch(
+            "app.api.emails.queue_service.enqueue",
+            new_callable=AsyncMock,
+        ) as mock_enqueue,
+    ):
         mock_create.return_value = mock_email_record
         mock_update.return_value = mock_email_record
         mock_enqueue.side_effect = Exception("Redis connection failed")
@@ -341,16 +361,21 @@ async def test_send_email_with_all_fields():
         retry_count=0,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
-        audit_log=[]
+        audit_log=[],
     )
-    
-    with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create, \
-         patch('app.api.emails.email_service.update_status', new_callable=AsyncMock) as mock_update, \
-         patch('app.api.emails.queue_service.enqueue', new_callable=AsyncMock):
-        
+
+    with (
+        patch(
+            "app.api.emails.email_service.create_email", new_callable=AsyncMock
+        ) as mock_create,
+        patch(
+            "app.api.emails.email_service.update_status", new_callable=AsyncMock
+        ) as mock_update,
+        patch("app.api.emails.queue_service.enqueue", new_callable=AsyncMock),
+    ):
         mock_create.return_value = mock_email_record
         mock_update.return_value = mock_email_record
-        
+
         async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
@@ -368,11 +393,11 @@ async def test_send_email_with_all_fields():
                     "tags": ["tag1", "tag2"],
                     "caller_id": "test-caller",
                     "smtp_auth_profile_id": "profile-123",
-                    "idempotency_key": "key-456"
+                    "idempotency_key": "key-456",
                 },
-                headers={"X-Caller-Id": "test-caller"}
+                headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_202_ACCEPTED
 
 
@@ -394,18 +419,20 @@ async def test_get_email_status_success():
         updated_at=datetime.now(timezone.utc),
         sent_at=datetime.now(timezone.utc),
         smtp_auth_profile_id=None,
-        is_html=0
+        is_html=0,
     )
-    
-    with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
+
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = mock_email
-        
+
         async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/test-email-id",
                 headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["email_id"] == "test-email-id"
@@ -435,7 +462,9 @@ async def test_get_email_status_unknown_status_falls_back_to_failed():
         is_html=0,
     )
 
-    with patch("app.api.emails.email_service.get_by_id", new_callable=AsyncMock) as mock_get:
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = mock_email
 
         async with get_test_client() as client:
@@ -470,7 +499,9 @@ async def test_get_email_status_caller_id_mismatch():
         is_html=0,
     )
 
-    with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = mock_email
 
         async with get_test_client() as client:
@@ -485,15 +516,17 @@ async def test_get_email_status_caller_id_mismatch():
 @pytest.mark.asyncio
 async def test_get_email_status_not_found():
     """Test email status retrieval for non-existent email"""
-    with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = None
-        
+
         async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/nonexistent-id",
                 headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
@@ -514,18 +547,20 @@ async def test_get_email_status_with_json_string_addresses():
         updated_at=datetime.now(timezone.utc),
         sent_at=datetime.now(timezone.utc),
         smtp_auth_profile_id=None,
-        is_html=0
+        is_html=0,
     )
-    
-    with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
+
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = mock_email
-        
+
         async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/test-email-id",
                 headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["to"] == ["recipient@example.com"]
@@ -551,7 +586,9 @@ async def test_get_email_status_with_json_string_single_address():
         is_html=0,
     )
 
-    with patch("app.api.emails.email_service.get_by_id", new_callable=AsyncMock) as mock_get:
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = mock_email
 
         async with get_test_client() as client:
@@ -585,7 +622,9 @@ async def test_get_email_status_with_non_list_json_addresses():
         is_html=0,
     )
 
-    with patch("app.api.emails.email_service.get_by_id", new_callable=AsyncMock) as mock_get:
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = mock_email
 
         async with get_test_client() as client:
@@ -607,7 +646,7 @@ async def test_get_email_status_with_corrupted_addresses():
         caller_id="test-caller",
         from_address="sender@yourdomain.com",
         envelope_from="sender@yourdomain.com",
-        to_addresses='not-valid-json',  # Corrupted JSON
+        to_addresses="not-valid-json",  # Corrupted JSON
         subject="Test Subject",
         body="Test Body",
         status=EmailStatus.SENT.value,
@@ -616,18 +655,20 @@ async def test_get_email_status_with_corrupted_addresses():
         updated_at=datetime.now(timezone.utc),
         sent_at=datetime.now(timezone.utc),
         smtp_auth_profile_id=None,
-        is_html=0
+        is_html=0,
     )
-    
-    with patch('app.api.emails.email_service.get_by_id', new_callable=AsyncMock) as mock_get:
+
+    with patch(
+        "app.api.emails.email_service.get_by_id", new_callable=AsyncMock
+    ) as mock_get:
         mock_get.return_value = mock_email
-        
+
         async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/test-email-id",
                 headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["to"] == []  # Falls back to empty list
@@ -636,22 +677,31 @@ async def test_get_email_status_with_corrupted_addresses():
 @pytest.mark.asyncio
 async def test_get_queue_stats_success():
     """Test successful queue stats retrieval"""
-    with patch('app.api.emails.queue_service.get_queue_size', new_callable=AsyncMock) as mock_queue, \
-         patch('app.api.emails.queue_service.get_processing_size', new_callable=AsyncMock) as mock_processing, \
-         patch('app.api.emails.queue_service.get_delayed_size', new_callable=AsyncMock) as mock_delayed, \
-         patch('app.api.emails.queue_service.get_dlq_size', new_callable=AsyncMock) as mock_dlq:
-        
+    with (
+        patch(
+            "app.api.emails.queue_service.get_queue_size", new_callable=AsyncMock
+        ) as mock_queue,
+        patch(
+            "app.api.emails.queue_service.get_processing_size", new_callable=AsyncMock
+        ) as mock_processing,
+        patch(
+            "app.api.emails.queue_service.get_delayed_size", new_callable=AsyncMock
+        ) as mock_delayed,
+        patch(
+            "app.api.emails.queue_service.get_dlq_size", new_callable=AsyncMock
+        ) as mock_dlq,
+    ):
         mock_queue.return_value = 10
         mock_processing.return_value = 5
         mock_delayed.return_value = 3
         mock_dlq.return_value = 2
-        
+
         async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/",
                 headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["queue_size"] == 10
@@ -663,15 +713,17 @@ async def test_get_queue_stats_success():
 @pytest.mark.asyncio
 async def test_get_queue_stats_error():
     """Test queue stats handles errors gracefully"""
-    with patch('app.api.emails.queue_service.get_queue_size', new_callable=AsyncMock) as mock_queue:
+    with patch(
+        "app.api.emails.queue_service.get_queue_size", new_callable=AsyncMock
+    ) as mock_queue:
         mock_queue.side_effect = Exception("Redis connection failed")
-        
+
         async with get_test_client() as client:
             response = await client.get(
                 "/api/v1/emails/",
                 headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
@@ -680,7 +732,7 @@ async def test_root_endpoint():
     """Test root endpoint returns service info"""
     async with get_test_client() as client:
         response = await client.get("/")
-    
+
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert "service" in data
@@ -707,9 +759,12 @@ async def test_health_check_endpoint():
 
     fake_redis_client = MagicMock(ping=AsyncMock(return_value=True))
 
-    with patch("app.main.AsyncSessionLocal", new=fake_session_local), patch(
-        "app.main.queue_service.redis_client",
-        new=fake_redis_client,
+    with (
+        patch("app.main.AsyncSessionLocal", new=fake_session_local),
+        patch(
+            "app.main.queue_service.redis_client",
+            new=fake_redis_client,
+        ),
     ):
         async with get_test_client() as client:
             response = await client.get("/health")
@@ -739,9 +794,12 @@ async def test_readiness_check_endpoint():
 
     fake_redis_client = MagicMock(ping=AsyncMock(return_value=True))
 
-    with patch("app.main.AsyncSessionLocal", new=fake_session_local), patch(
-        "app.main.queue_service.redis_client",
-        new=fake_redis_client,
+    with (
+        patch("app.main.AsyncSessionLocal", new=fake_session_local),
+        patch(
+            "app.main.queue_service.redis_client",
+            new=fake_redis_client,
+        ),
     ):
         async with get_test_client() as client:
             response = await client.get("/ready")
@@ -763,25 +821,32 @@ async def test_send_email_with_attachments():
         to_addresses=["recipient@example.com"],
         subject="Test with Attachments",
         body="Test Body",
-        attachments=[{
-            "filename": "test.pdf",
-            "content_type": "application/pdf",
-            "content_base64": "dGVzdA=="
-        }],
+        attachments=[
+            {
+                "filename": "test.pdf",
+                "content_type": "application/pdf",
+                "content_base64": "dGVzdA==",
+            }
+        ],
         status=EmailStatus.PENDING.value,
         retry_count=0,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
-        audit_log=[]
+        audit_log=[],
     )
-    
-    with patch('app.api.emails.email_service.create_email', new_callable=AsyncMock) as mock_create, \
-         patch('app.api.emails.email_service.update_status', new_callable=AsyncMock) as mock_update, \
-         patch('app.api.emails.queue_service.enqueue', new_callable=AsyncMock):
-        
+
+    with (
+        patch(
+            "app.api.emails.email_service.create_email", new_callable=AsyncMock
+        ) as mock_create,
+        patch(
+            "app.api.emails.email_service.update_status", new_callable=AsyncMock
+        ) as mock_update,
+        patch("app.api.emails.queue_service.enqueue", new_callable=AsyncMock),
+    ):
         mock_create.return_value = mock_email_record
         mock_update.return_value = mock_email_record
-        
+
         async with get_test_client() as client:
             response = await client.post(
                 "/api/v1/emails/",
@@ -791,13 +856,15 @@ async def test_send_email_with_attachments():
                     "subject": "Test with Attachments",
                     "body": "Test Body",
                     "caller_id": "test-caller",
-                    "attachments": [{
-                        "filename": "test.pdf",
-                        "content_type": "application/pdf",
-                        "content_base64": "dGVzdA=="
-                    }]
+                    "attachments": [
+                        {
+                            "filename": "test.pdf",
+                            "content_type": "application/pdf",
+                            "content_base64": "dGVzdA==",
+                        }
+                    ],
                 },
-                headers={"X-Caller-Id": "test-caller"}
+                headers={"X-Caller-Id": "test-caller"},
             )
-        
+
         assert response.status_code == status.HTTP_202_ACCEPTED
