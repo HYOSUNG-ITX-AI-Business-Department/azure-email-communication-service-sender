@@ -1,0 +1,61 @@
+"""Atheris fuzz harness for EmailRequest schema validation.
+
+This is intentionally defensive:
+- Invalid JSON / schema inputs are expected and should not crash.
+- Unexpected exceptions should be surfaced as crashes.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+
+import atheris
+from pydantic import ValidationError
+
+with atheris.instrument_imports():
+    # Instrument our application code for better Python coverage.
+    from app.schemas.email import EmailRequest
+
+
+def _should_skip_input(data: bytes) -> bool:
+    # Avoid excessive CPU/memory usage on pathological inputs.
+    #
+    # The EmailRequest JSON payload is expected to be relatively small (human-
+    # authored email metadata). Extremely large inputs tend to be unrealistic for
+    # this schema and can slow down fuzzing significantly without improving
+    # coverage.
+    return len(data) > 200_000
+
+
+def TestOneInput(data: bytes) -> None:
+    if _should_skip_input(data):
+        return
+
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return
+
+    try:
+        obj = json.loads(text)
+    except json.JSONDecodeError:
+        return
+
+    if not isinstance(obj, dict):
+        return
+
+    try:
+        EmailRequest.model_validate(obj)
+    except (ValidationError, ValueError):
+        # Invalid inputs are expected.
+        return
+
+
+def main() -> None:
+    atheris.Setup(sys.argv, TestOneInput)
+    atheris.Fuzz()
+
+
+if __name__ == "__main__":
+    main()
