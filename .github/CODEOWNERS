@@ -1,0 +1,15 @@
+# This file defines mandatory reviewers for matching paths.
+#
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for all paths.
+* @HYOSUNG-ITX-AI-Business-Department/ai-service-team
+
+# Protect this file and GitHub automation config explicitly.
+# NOTE: CODEOWNERS uses the *last* matching pattern, so the more specific
+# patterns must come after the wildcard.
+/.github/ @HYOSUNG-ITX-AI-Business-Department/ai-service-team
+
+# Example (optional): add more granular owners later.
+# /.github/workflows/ @HYOSUNG-ITX-AI-Business-Department/devops-team
+# /docs/ @HYOSUNG-ITX-AI-Business-Department/docs-team
