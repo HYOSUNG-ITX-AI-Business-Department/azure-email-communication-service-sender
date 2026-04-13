@@ -1331,9 +1331,15 @@ EOF
 run_stale_report_case() {
   local tmp_dir
   tmp_dir="$(mktemp -d)"
+  local repo_root_dir="$tmp_dir/workspace/smart-crawling-server"
   local output_log="$tmp_dir/output.log"
   local fake_strix="$tmp_dir/strix"
-  local stale_report_dir="$tmp_dir/strix_runs/stale/vulnerabilities"
+  local stale_report_dir="$repo_root_dir/strix_runs/stale/vulnerabilities"
+
+  mkdir -p "$repo_root_dir/scripts/ci"
+  cp "$GATE_SCRIPT" "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+  cp "$REPO_ROOT/scripts/ci/strix_model_utils.sh" "$repo_root_dir/scripts/ci/strix_model_utils.sh"
+  chmod +x "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
 
   mkdir -p "$stale_report_dir"
   cat >"$stale_report_dir/vuln-0001.md" <<'EOF'
@@ -1354,8 +1360,8 @@ EOF
     STRIX_LLM="openai/gpt-4o-mini" \
     LLM_API_KEY="dummy" \
     RAW_LLM_API_BASE="https://example.invalid/generateContent" \
-    STRIX_REPORTS_DIR="$tmp_dir/strix_runs" \
-    bash "$GATE_SCRIPT" >"$output_log" 2>&1
+    STRIX_REPORTS_DIR="strix_runs" \
+    bash "$repo_root_dir/scripts/ci/strix_quick_gate.sh" >"$output_log" 2>&1
   local rc=$?
   set -e
 
@@ -1368,15 +1374,21 @@ EOF
 run_symlink_report_case() {
   local tmp_dir
   tmp_dir="$(mktemp -d)"
+  local repo_root_dir="$tmp_dir/workspace/smart-crawling-server"
   local output_log="$tmp_dir/output.log"
   local fake_strix="$tmp_dir/strix"
   local external_report_dir="$tmp_dir/external/vulnerabilities"
 
-  mkdir -p "$external_report_dir" "$tmp_dir/strix_runs"
+  mkdir -p "$repo_root_dir/scripts/ci"
+  cp "$GATE_SCRIPT" "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+  cp "$REPO_ROOT/scripts/ci/strix_model_utils.sh" "$repo_root_dir/scripts/ci/strix_model_utils.sh"
+  chmod +x "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+
+  mkdir -p "$external_report_dir" "$repo_root_dir/strix_runs"
   cat >"$external_report_dir/vuln-0001.md" <<'EOF'
 Severity: LOW
 EOF
-  ln -s "$tmp_dir/external" "$tmp_dir/strix_runs/latest"
+  ln -s "$tmp_dir/external" "$repo_root_dir/strix_runs/latest"
 
   cat >"$fake_strix" <<'EOF'
 #!/usr/bin/env bash
@@ -1392,13 +1404,55 @@ EOF
     STRIX_LLM="openai/gpt-4o-mini" \
     LLM_API_KEY="dummy" \
     RAW_LLM_API_BASE="https://example.invalid/generateContent" \
-    STRIX_REPORTS_DIR="$tmp_dir/strix_runs" \
-    bash "$GATE_SCRIPT" >"$output_log" 2>&1
+    STRIX_REPORTS_DIR="strix_runs" \
+    bash "$repo_root_dir/scripts/ci/strix_quick_gate.sh" >"$output_log" 2>&1
   local rc=$?
   set -e
 
   assert_equals "1" "$rc" "case=symlink-report-does-not-bypass exit code"
   assert_file_contains "$output_log" "Strix quick scan failed with a non-recoverable error." "case=symlink-report-does-not-bypass output"
+
+  rm -rf "$tmp_dir"
+}
+
+run_unsafe_target_path_case() {
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+  local repo_root_dir="$tmp_dir/workspace/smart-crawling-server"
+  local output_log="$tmp_dir/output.log"
+  local fake_strix="$tmp_dir/strix"
+  local call_log="$tmp_dir/calls.log"
+
+  mkdir -p "$repo_root_dir/scripts/ci"
+  cp "$GATE_SCRIPT" "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+  cp "$REPO_ROOT/scripts/ci/strix_model_utils.sh" "$repo_root_dir/scripts/ci/strix_model_utils.sh"
+  chmod +x "$repo_root_dir/scripts/ci/strix_quick_gate.sh"
+
+  cat >"$fake_strix" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' called >>"${FAKE_STRIX_CALL_LOG:?}"
+exit 0
+EOF
+  chmod +x "$fake_strix"
+
+  set +e
+  env -u GITHUB_EVENT_NAME -u GITHUB_EVENT_PATH -u STRIX_TEST_CHANGED_FILES_OVERRIDE \
+    PATH="$tmp_dir:$PATH" \
+    FAKE_STRIX_CALL_LOG="$call_log" \
+    STRIX_LLM="openai/gpt-4o-mini" \
+    LLM_API_KEY="dummy" \
+    RAW_LLM_API_BASE="https://example.invalid/generateContent" \
+    STRIX_TARGET_PATH="../../../../../etc/passwd" \
+    bash "$repo_root_dir/scripts/ci/strix_quick_gate.sh" >"$output_log" 2>&1
+  local rc=$?
+  set -e
+
+  assert_equals "2" "$rc" "case=unsafe-target-path exit code"
+  assert_file_contains "$output_log" "contains unsupported path syntax" "case=unsafe-target-path output"
+  if [ -f "$call_log" ]; then
+    record_failure "case=unsafe-target-path should reject before invoking strix"
+  fi
 
   rm -rf "$tmp_dir"
 }
@@ -2051,6 +2105,7 @@ run_gate_case "infra-error-sticky-flag" \
 run_invalid_min_fail_severity_case
 run_stale_report_case
 run_symlink_report_case
+run_unsafe_target_path_case
 
 run_gate_case "slow-timeout" \
   "vertex_ai/slow-primary" \
