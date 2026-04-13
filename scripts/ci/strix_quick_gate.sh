@@ -16,10 +16,7 @@ TARGET_PATH=""
 RAW_SCAN_MODE="${STRIX_SCAN_MODE:-quick}"
 SCAN_MODE=""
 ARTIFACT_REPORTS_DIR_RAW="${STRIX_REPORTS_DIR:-strix_runs}"
-case "$ARTIFACT_REPORTS_DIR_RAW" in
-  /*) ARTIFACT_REPORTS_DIR="$ARTIFACT_REPORTS_DIR_RAW" ;;
-  *) ARTIFACT_REPORTS_DIR="$REPO_ROOT/$ARTIFACT_REPORTS_DIR_RAW" ;;
-esac
+ARTIFACT_REPORTS_DIR=""
 STRIX_RUNTIME_DIR="$(mktemp -d "${TMPDIR:-/tmp}/strix-runtime.XXXXXX")"
 STRIX_LOG="$STRIX_RUNTIME_DIR/strix.log"
 ACTIVE_REPORTS_DIR="$STRIX_RUNTIME_DIR/reports"
@@ -59,10 +56,10 @@ publish_artifact_reports() {
     echo "ERROR: artifact reports path must not be a symlink: $ARTIFACT_REPORTS_DIR" >&2
     return 1
   fi
-  rm -rf "$ARTIFACT_REPORTS_DIR"
-  mkdir -p "$ARTIFACT_REPORTS_DIR"
+  rm -rf -- "$ARTIFACT_REPORTS_DIR"
+  mkdir -p -- "$ARTIFACT_REPORTS_DIR"
   if [ -d "$ACTIVE_REPORTS_DIR" ]; then
-    cp -R "$ACTIVE_REPORTS_DIR"/. "$ARTIFACT_REPORTS_DIR"/
+    cp -R -- "$ACTIVE_REPORTS_DIR"/. "$ARTIFACT_REPORTS_DIR"/
   fi
 }
 
@@ -74,7 +71,7 @@ cleanup_runtime() {
   local scope_dir
   for scope_dir in "${PULL_REQUEST_SCOPE_DIRS[@]}"; do
     if [ -n "$scope_dir" ] && [ -d "$scope_dir" ]; then
-      rm -rf "$scope_dir"
+      rm -rf -- "$scope_dir"
     fi
   done
 }
@@ -119,6 +116,99 @@ require_safe_scan_mode() {
     echo "ERROR: STRIX_SCAN_MODE contains unsupported characters: '$scan_mode'." >&2
     exit 2
   fi
+}
+
+validate_raw_target_path_input() {
+  local raw_target
+  raw_target="$(trim_whitespace "$1")"
+  if [ -z "$raw_target" ]; then
+    echo "ERROR: STRIX_TARGET_PATH must not be empty." >&2
+    return 2
+  fi
+  if [[ "$raw_target" == -* ]]; then
+    echo "ERROR: STRIX_TARGET_PATH contains unsupported path syntax: '$raw_target'." >&2
+    return 2
+  fi
+  python3 - "$REPO_ROOT" "$raw_target" <<'PY' || {
+from pathlib import Path
+import re
+import sys
+
+repo_root = Path(sys.argv[1]).resolve(strict=True)
+raw_target = sys.argv[2]
+if not re.fullmatch(r"[A-Za-z0-9_./-]+", raw_target):
+    raise SystemExit(1)
+if raw_target.startswith('~'):
+    raise SystemExit(1)
+candidate = Path(raw_target)
+if candidate.is_absolute():
+    resolved = candidate.resolve(strict=False)
+    resolved.relative_to(repo_root)
+else:
+    parts = [part for part in raw_target.split('/') if part not in ('', '.')]
+    if any(part == '..' for part in parts):
+        raise SystemExit(1)
+PY
+    echo "ERROR: STRIX_TARGET_PATH contains unsupported path syntax: '$raw_target'." >&2
+    return 2
+  }
+  printf '%s\n' "$raw_target"
+}
+
+resolve_artifact_reports_dir() {
+  local raw_dir="$1"
+  python3 - "$REPO_ROOT" "$raw_dir" <<'PY'
+from pathlib import Path
+import sys
+
+repo_root = Path(sys.argv[1]).resolve(strict=True)
+raw_dir = sys.argv[2].strip()
+if not raw_dir:
+    raise SystemExit(1)
+
+candidate = Path(raw_dir)
+if not candidate.is_absolute():
+    candidate = repo_root / candidate
+resolved = candidate.resolve(strict=False)
+try:
+    resolved.relative_to(repo_root)
+except ValueError:
+    raise SystemExit(1)
+if resolved == repo_root:
+    raise SystemExit(1)
+print(resolved)
+PY
+}
+
+changed_file_has_safe_path() {
+  local changed_file="$1"
+  if [ -z "$changed_file" ] || [[ "$changed_file" == /* ]] || [[ "$changed_file" == -* ]]; then
+    return 1
+  fi
+  case "$changed_file" in
+    ../* | */../* | */.. | ..)
+      return 1
+      ;;
+  esac
+  return 0
+}
+
+normalize_changed_file_path() {
+  local changed_file="$1"
+  python3 - "$REPO_ROOT" "$changed_file" <<'PY'
+from pathlib import Path
+import sys
+
+repo_root = Path(sys.argv[1]).resolve(strict=True)
+relative_path = Path(sys.argv[2].strip())
+if relative_path.is_absolute():
+    raise SystemExit(1)
+if any(part in ('', '.', '..') for part in relative_path.parts):
+    raise SystemExit(1)
+src_path = (repo_root / relative_path).resolve(strict=True)
+relative = src_path.relative_to(repo_root)
+print(relative.as_posix())
+PY
 }
 
 is_supported_source_file() {
@@ -217,6 +307,11 @@ remaining_total_budget() {
 
 capture_preexisting_report_dirs
 
+if ! ARTIFACT_REPORTS_DIR="$(resolve_artifact_reports_dir "$ARTIFACT_REPORTS_DIR_RAW")"; then
+  echo "ERROR: STRIX_REPORTS_DIR must resolve to a dedicated directory inside the repository checkout." >&2
+  exit 2
+fi
+
 github_event_payload_has_pull_request() {
   if [ "${STRIX_TEST_CHANGED_FILES_OVERRIDE+x}" = x ] || { [ -n "${PR_BASE_SHA:-}" ] && [ -n "${PR_HEAD_SHA:-}" ]; }; then
     return 0
@@ -281,19 +376,23 @@ target_path = Path(raw_target)
 if not target_path.is_absolute():
     target_path = repo_root / target_path
 
-resolved = target_path.resolve(strict=True)
+resolved = target_path.resolve(strict=False)
 print(resolved)
 PY
   })" || {
-    echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
+    echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a valid path." >&2
     return 2
   }
-  if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
-    echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
-    return 2
-  fi
   if ! path_is_within_allowed_scope "$resolved_target"; then
     echo "ERROR: STRIX_TARGET_PATH '$raw_target' must stay within the repository or generated PR scope directories." >&2
+    return 2
+  fi
+  if [ ! -e "$resolved_target" ]; then
+    echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to an existing directory." >&2
+    return 2
+  fi
+  if [ ! -d "$resolved_target" ] || [ -L "$resolved_target" ]; then
+    echo "ERROR: STRIX_TARGET_PATH '$raw_target' must resolve to a real directory." >&2
     return 2
   fi
   printf '%s\n' "$resolved_target"
@@ -301,6 +400,9 @@ PY
 
 SCAN_MODE="$(trim_whitespace "$RAW_SCAN_MODE")"
 require_safe_scan_mode "$SCAN_MODE"
+if ! RAW_TARGET_PATH="$(validate_raw_target_path_input "$RAW_TARGET_PATH")"; then
+  exit 2
+fi
 if ! TARGET_PATH="$(resolve_scan_target_path "$RAW_TARGET_PATH")"; then
   exit 2
 fi
@@ -384,6 +486,9 @@ is_scannable_changed_file() {
   if [[ "$changed_file" == */ ]]; then
     return 1
   fi
+  if ! changed_file_has_safe_path "$changed_file"; then
+    return 1
+  fi
   if ! is_supported_source_file "$changed_file"; then
     return 1
   fi
@@ -399,10 +504,38 @@ build_pull_request_scope_dir() {
   scope_dir="$({ CDPATH='' && cd -P -- "$scope_dir" && pwd -P; })"
   PULL_REQUEST_SCOPE_DIRS+=("$scope_dir")
 
+  copy_changed_file_into_scope() {
+    local changed_file="$1"
+    local relative_path
+    relative_path="$(normalize_changed_file_path "$changed_file")" || {
+      echo "ERROR: pull request changed file path is unsafe: $changed_file" >&2
+      return 2
+    }
+    mapfile -t _paths < <(
+      python3 - "$REPO_ROOT" "$scope_dir" "$relative_path" <<'PY'
+from pathlib import Path
+import sys
+
+repo_root = Path(sys.argv[1]).resolve(strict=True)
+scope_root = Path(sys.argv[2]).resolve(strict=True)
+relative_path = Path(sys.argv[3])
+src_path = (repo_root / relative_path).resolve(strict=True)
+src_path.relative_to(repo_root)
+dst_path = (scope_root / relative_path).resolve(strict=False)
+dst_path.relative_to(scope_root)
+print(src_path)
+print(dst_path)
+PY
+    )
+    local src_path="${_paths[0]}"
+    local dst_path="${_paths[1]}"
+    mkdir -p -- "$(dirname -- "$dst_path")"
+    cp -- "$src_path" "$dst_path"
+  }
+
   local changed_file
   for changed_file in "$@"; do
-    mkdir -p "$scope_dir/$(dirname "$changed_file")"
-    cp "$REPO_ROOT/$changed_file" "$scope_dir/$changed_file"
+    copy_changed_file_into_scope "$changed_file" || return 2
   done
   LAST_PULL_REQUEST_SCOPE_DIR="$scope_dir"
 }
@@ -721,11 +854,49 @@ target_path = sys.argv[2]
 scan_mode = sys.argv[3]
 log_path = pathlib.Path(sys.argv[4])
 process_timeout = None if timeout_seconds == 0 else timeout_seconds
-child_env = os.environ.copy()
+child_env = {}
+for key in (
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "SYSTEMROOT",
+    "COMSPEC",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "NO_PROXY",
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+):
+    value = os.environ.get(key)
+    if value:
+        child_env[key] = value
 child_env["STRIX_LLM"] = os.environ["STRIX_CHILD_MODEL"]
 child_env["LLM_MODEL"] = os.environ["STRIX_CHILD_MODEL"]
 child_env["LLM_API_KEY"] = os.environ["STRIX_CHILD_LLM_API_KEY"]
 child_env["STRIX_REPORTS_DIR"] = os.environ["STRIX_CHILD_REPORTS_DIR"]
+for key, value in os.environ.items():
+    if key.startswith("FAKE_STRIX_") and value:
+        child_env[key] = value
+for key in (
+    "GOOGLE_GHA_CREDS_PATH",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE",
+    "VERTEX_LOCATION",
+    "GOOGLE_CLOUD_PROJECT",
+    "GCP_PROJECT",
+    "GCLOUD_PROJECT",
+    "CLOUDSDK_CORE_PROJECT",
+    "CLOUDSDK_PROJECT",
+):
+    value = os.environ.get(key)
+    if value:
+        child_env[key] = value
 llm_api_base = os.environ.get("STRIX_CHILD_LLM_API_BASE", "")
 if llm_api_base:
     child_env["LLM_API_BASE"] = llm_api_base
@@ -757,11 +928,17 @@ try:
     log_path.write_text(output or "", encoding="utf-8")
     raise SystemExit(process.returncode)
 except subprocess.TimeoutExpired:
-    os.killpg(process.pid, signal.SIGTERM)
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
     try:
         output, _ = process.communicate(timeout=5)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         output, _ = process.communicate()
     if output:
         sys.stdout.write(output)
